@@ -2,9 +2,14 @@
   open Syntax
 
   let mkexp d = { gamma = []; desc = d; tau = Type.tunit }
+  let mkabstr idl e =
+    match idl, e.desc with
+      | [], _ -> e
+      | idl, Abstr(idl', e') -> mkexp (Abstr(idl @ idl', e'))
+      | idl, _ -> mkexp (Abstr(idl, e))
   let mkapp e el =
     match e.desc with
-      | App(e', el') -> { e with desc = App(e', el' @ el) }
+      | App(e', el') -> mkexp (App(e', el' @ el))
       | _ -> mkexp (App(e, el))
   let mkident id = mkexp (Ident(id))
   let mkinfix e1 op e2 = mkapp (mkident op) [e1; e2]
@@ -92,12 +97,14 @@ expr:
     { $1 }
 | simple_expr simple_expr_list
     { mkapp $1 (List.rev $2) }
-| LET IDENT EQUAL seq_expr IN seq_expr
-    { mkexp (Let($2, $4, $6)) }
-| LET REC IDENT EQUAL seq_expr IN seq_expr
-    { mkexp (Let($3, $5, $7)) }
+| LET IDENT ident_list EQUAL seq_expr IN seq_expr
+    { mkexp (Let($2, mkabstr $3 $5, $7)) }
+| LET REC IDENT ident_list EQUAL seq_expr IN seq_expr
+    { mkexp (LetRec($3, mkabstr $4 $6, $8)) }
+| LET LPAREN ident_comma_list RPAREN EQUAL seq_expr IN seq_expr
+    { mkexp (LetTuple($3, $6, $8)) }
 | LAMBDA IDENT DOT seq_expr
-    { mkexp (Abstr($2, $4)) }
+    { mkabstr [$2] $4 }
 | expr_comma_list %prec below_COMMA
     { mkexp (Tuple(List.rev $1)) }
 | IF seq_expr THEN expr ELSE expr
@@ -155,6 +162,20 @@ simple_expr_list:
     { [$1] }
 | simple_expr_list simple_expr
     { $2 :: $1 }
+;
+
+ident_comma_list:
+| IDENT COMMA IDENT
+    { [$1; $3] }
+| IDENT COMMA ident_comma_list
+    { $1 :: $3 }
+;
+
+ident_list:
+| /* empty */
+    { [] }
+| IDENT ident_list
+    { $1 :: $2 }
 ;
 
 operator:

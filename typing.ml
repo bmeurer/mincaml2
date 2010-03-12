@@ -91,11 +91,12 @@ let rec infer (gamma:Type.environment) (e:t): Type.t =
         let tau = List.fold_right (fun e tau -> Type.Arrow(infer gamma e, tau)) el tau' in
           solve gamma e tau;
           tau'
-    | Abstr(id, e) ->
-        let tau = Type.newvar () in
+    | Abstr(idl, e) ->
         let tau' = Type.newvar () in
-          solve ((id, tau) :: gamma) e tau';
-          Type.Arrow(tau, tau')
+        let taul = List.map (fun _ -> Type.newvar ()) idl in
+        let gamma' = List.fold_right2 (fun id tau gamma -> (id, tau) :: gamma) idl taul gamma in
+          solve gamma' e tau';
+          List.fold_right (fun tau tau' -> Type.Arrow(tau, tau')) taul tau'
     | Let(id, e1, e2) ->
         let tau = infer gamma e1 in
           infer ((id, generalize gamma e1 tau) :: gamma) e2
