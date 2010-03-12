@@ -1,4 +1,8 @@
 type t =
+    { mutable gamma: Type.environment;
+      desc: desc;
+      mutable tau: Type.t }
+and desc =
   | Unit
   | Bool of bool
   | Int of int
