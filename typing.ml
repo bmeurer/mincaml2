@@ -41,8 +41,6 @@ let rec unify (tau1:Type.t) (tau2:Type.t): unit =
 
 let rec is_nonexpansive (e:t): bool =
   match e.desc with
-    | Unit
-    | Bool(_)
     | Int(_)
     | Char(_)
     | Float(_)
@@ -64,10 +62,6 @@ let generalize (gamma:Type.environment) (e:t) (tau:Type.t): Type.t =
 
 let rec infer (gamma:Type.environment) (e:t): Type.t =
   let tau = match e.desc with
-    | Unit ->
-        Type.tunit
-    | Bool(_) ->
-        Type.tbool
     | Int(_) ->
         Type.tint
     | Char(_) ->

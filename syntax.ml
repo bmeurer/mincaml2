@@ -3,8 +3,6 @@ type t =
       desc: desc;
       mutable tau: Type.t }
 and desc =
-  | Unit
-  | Bool of bool
   | Int of int
   | Char of char
   | Float of float

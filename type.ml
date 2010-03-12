@@ -33,7 +33,7 @@ let to_string (tau:t): string =
       | Tuple(taul) ->
           "(" ^ (List.fold_left
                    (fun s tau -> 
-                      (to_string_aux tau) ^ (if s = "" then "" else " * " ^ s))
+                      (if s = "" then "" else s ^ " * ") ^ (to_string_aux tau))
                    ""
                    taul) ^ ")"
       | Constr([], name) ->
@@ -43,7 +43,7 @@ let to_string (tau:t): string =
       | Constr(taul, name) ->
           "(" ^ (List.fold_left
                    (fun s tau ->
-                      (to_string_aux tau) ^ (if s = "" then "" else ", " ^ s))
+                      (if s = "" then "" else s ^ ", ") ^ (to_string_aux tau))
                    ""
                    taul) ^ ") " ^ name
       | Variable({ contents = Some(tau) }) ->
@@ -112,34 +112,36 @@ let gamma0:environment =
   let alpha_times_beta = Tuple([alpha; beta]) in
   let alpha_ref = tref alpha in
   let gamma0 =
-    ["()",   tunit;
-     "=",    alpha_to_alpha_to_bool;
-     "<>",   alpha_to_alpha_to_bool;
-     "<",    alpha_to_alpha_to_bool;
-     ">",    alpha_to_alpha_to_bool;
-     "<=",   alpha_to_alpha_to_bool;
-     ">=",   alpha_to_alpha_to_bool;
-     "==",   alpha_to_alpha_to_bool;
-     "!=",   alpha_to_alpha_to_bool;
-     "~-",   int_to_int;
-     "+",    int_to_int_to_int;
-     "-",    int_to_int_to_int;
-     "*",    int_to_int_to_int;
-     "land", int_to_int_to_int;
-     "lor",  int_to_int_to_int;
-     "lxor", int_to_int_to_int;
-     "lnot", int_to_int_to_int;
-     "lsl",  int_to_int_to_int;
-     "lsr",  int_to_int_to_int;
-     "asr",  int_to_int_to_int;
-     "~-.",  float_to_float;
-     "+.",   float_to_float_to_float;
-     "-.",   float_to_float_to_float;
-     "*.",   float_to_float_to_float;
-     "^",    Arrow(tstring, Arrow(tstring, tstring));
-     "fst",  Arrow(alpha_times_beta, alpha);
-     "snd",  Arrow(alpha_times_beta, beta);
-     "ref",  Arrow(alpha, alpha_ref);
-     "!",    Arrow(alpha_ref, alpha);
-     ":=",   Arrow(alpha_ref, Arrow(alpha, tunit))]
+    ["()",    tunit;
+     "true",  tbool;
+     "false", tbool;
+     "=",     alpha_to_alpha_to_bool;
+     "<>",    alpha_to_alpha_to_bool;
+     "<",     alpha_to_alpha_to_bool;
+     ">",     alpha_to_alpha_to_bool;
+     "<=",    alpha_to_alpha_to_bool;
+     ">=",    alpha_to_alpha_to_bool;
+     "==",    alpha_to_alpha_to_bool;
+     "!=",    alpha_to_alpha_to_bool;
+     "~-",    int_to_int;
+     "+",     int_to_int_to_int;
+     "-",     int_to_int_to_int;
+     "*",     int_to_int_to_int;
+     "land",  int_to_int_to_int;
+     "lor",   int_to_int_to_int;
+     "lxor",  int_to_int_to_int;
+     "lnot",  int_to_int_to_int;
+     "lsl",   int_to_int_to_int;
+     "lsr",   int_to_int_to_int;
+     "asr",   int_to_int_to_int;
+     "~-.",   float_to_float;
+     "+.",    float_to_float_to_float;
+     "-.",    float_to_float_to_float;
+     "*.",    float_to_float_to_float;
+     "^",     Arrow(tstring, Arrow(tstring, tstring));
+     "fst",   Arrow(alpha_times_beta, alpha);
+     "snd",   Arrow(alpha_times_beta, beta);
+     "ref",   Arrow(alpha, alpha_ref);
+     "!",     Arrow(alpha_ref, alpha);
+     ":=",    Arrow(alpha_ref, Arrow(alpha, tunit))]
   in List.map (fun (id, tau) -> id, generalize [] tau) gamma0

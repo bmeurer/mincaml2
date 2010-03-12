@@ -2,11 +2,18 @@
 #load "type.cmo";;
 #load "syntax.cmo";;
 #load "typing.cmo";;
+#load "mcparser.cmo";;
+#load "mclexer.cmo";;
 
-open Syntax;;
+let tokenl = ref []
+let token lexbuf =
+  let t = Mclexer.token lexbuf in
+    tokenl := t :: !tokenl; t
+let parse_string (s:string) =
+  Mcparser.expression token (Lexing.from_string s)
 
-let e = LetRec("id",
-               Abstr("x", Ident("x")),
-               Tuple([App(Ident("id"), Unit);
-                      App(Ident("id"), Float(1.))]));;
-Typing.typeof [] e;;
+(*let e = parse_string "let id = lambda x.x in id 1, id (), id false";;*)
+let e = parse_string "1, true, ()";;
+tokenl;;
+let tau = Typing.infer Type.gamma0 e;;
+print_endline (Type.to_string tau);;

@@ -1,5 +1,9 @@
 SOURCES=		\
 	listutils.ml	\
+	mclexer.ml	\
+	mclexer.mli	\
+	mcparser.ml	\
+	mcparser.mli	\
 	syntax.ml	\
 	type.ml		\
 	typing.ml
@@ -26,6 +30,7 @@ clean::
 	rm -f *.cmi
 	rm -f *.cmo
 	rm -f .depend
+	rm -f mclexer.ml mcparser.ml mcparser.mli
 
 .depend: Makefile $(SOURCES)
 	ocamldep.opt $(SOURCES) > $@
