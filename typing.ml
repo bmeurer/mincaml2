@@ -61,7 +61,7 @@ let generalize (gamma:Type.environment) (e:t) (tau:Type.t): Type.t =
   then Type.generalize gamma tau
   else tau
 
-let rec typeof (gamma:Type.environment) (e:t): Type.t =
+let rec infer (gamma:Type.environment) (e:t): Type.t =
   let tau = match e.desc with
     | Unit ->
         Type.tunit
@@ -100,24 +100,24 @@ let rec typeof (gamma:Type.environment) (e:t): Type.t =
           solve ((id, tau) :: gamma) e tau';
           Type.Arrow(tau, tau')
     | Let(id, e1, e2) ->
-        let tau = typeof gamma e1 in
-          typeof ((id, generalize gamma e1 tau) :: gamma) e2
+        let tau = infer gamma e1 in
+          infer ((id, generalize gamma e1 tau) :: gamma) e2
     | LetTuple(idl, e1, e2) ->
         let taul = List.map (fun _ -> Type.newvar ()) idl in
           solve gamma e1 (Type.Tuple(taul));
           let taul = List.map (generalize gamma e1) taul in
-            typeof (List.rev_append (List.combine idl taul) gamma) e2
+            infer (List.rev_append (List.combine idl taul) gamma) e2
     | LetRec(id, e1, e2) ->
         let tau = Type.newvar () in
           solve ((id, tau) :: gamma) e1 tau;
-          typeof ((id, generalize gamma e1 tau) :: gamma) e2
+          infer ((id, generalize gamma e1 tau) :: gamma) e2
   in let tau = Type.normalize tau in
     e.gamma <- gamma;
     e.tau <- tau;
     tau
 and solve (gamma:Type.environment) (e:t) (tau:Type.t) =
   try
-    unify (typeof gamma e) tau
+    unify (infer gamma e) tau
   with
     | Unify_error(tau1, tau2) -> raise (Error(e, Type.normalize tau1, Type.normalize tau2))
 
