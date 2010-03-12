@@ -12,6 +12,7 @@ and desc =
   | Ident of string
   | If of t * t * t
   | Tuple of t list
+  | Sequence of t * t
   | App of t * t
   | Abstr of string * t
   | Let of string * t * t

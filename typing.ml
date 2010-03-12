@@ -50,6 +50,7 @@ let rec is_nonexpansive (e:t): bool =
     | Ident(_)
     | Abstr(_) -> true
     | Tuple(el) -> List.for_all is_nonexpansive el
+    | Sequence(_, e2) -> is_nonexpansive e2
     | App(_) -> false
     | If(_, e1, e2) 
     | Let(_, e1, e2)
@@ -88,6 +89,9 @@ let rec infer (gamma:Type.environment) (e:t): Type.t =
           tau
     | Tuple(el) ->
         Type.Tuple(List.map (fun e -> let tau = Type.newvar () in solve gamma e tau; tau) el)
+    | Sequence(e1, e2) ->
+        solve gamma e1 Type.tunit;
+        infer gamma e2
     | App(e1, e2) ->
         let tau = Type.newvar () in
         let tau' = Type.newvar () in
