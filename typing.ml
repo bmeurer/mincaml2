@@ -86,11 +86,10 @@ let rec infer (gamma:Type.environment) (e:t): Type.t =
     | Sequence(e1, e2) ->
         solve gamma e1 Type.tunit;
         infer gamma e2
-    | App(e1, e2) ->
-        let tau = Type.newvar () in
+    | App(e, el) ->
         let tau' = Type.newvar () in
-          solve gamma e1 (Type.Arrow(tau, tau'));
-          solve gamma e2 tau;
+        let tau = List.fold_right (fun e tau -> Type.Arrow(infer gamma e, tau)) el tau' in
+          solve gamma e tau;
           tau'
     | Abstr(id, e) ->
         let tau = Type.newvar () in

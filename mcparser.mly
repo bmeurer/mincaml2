@@ -2,8 +2,12 @@
   open Syntax
 
   let mkexp d = { gamma = []; desc = d; tau = Type.tunit }
+  let mkapp e el =
+    match e.desc with
+      | App(e', el') -> { e with desc = App(e', el' @ el) }
+      | _ -> mkexp (App(e, el))
   let mkident id = mkexp (Ident(id))
-  let mkinfix e1 op e2 = mkexp (App(mkexp (App(mkident op, e1)), e2))
+  let mkinfix e1 op e2 = mkapp (mkident op) [e1; e2]
 %}
 
 /* Tokens */
@@ -87,7 +91,7 @@ expr:
 | simple_expr
     { $1 }
 | simple_expr simple_expr_list
-    { List.fold_left (fun e1 e2 -> mkexp (App(e1, e2))) $1 (List.rev $2) }
+    { mkapp $1 (List.rev $2) }
 | LET IDENT EQUAL seq_expr IN seq_expr
     { mkexp (Let($2, $4, $6)) }
 | LET REC IDENT EQUAL seq_expr IN seq_expr
@@ -143,7 +147,7 @@ simple_expr:
 | LPAREN seq_expr RPAREN
     { $2 }
 | PREFIXOP simple_expr
-    { mkexp (App(mkident $1, $2)) }
+    { mkapp (mkident $1) [$2] }
 ;
 
 simple_expr_list:

@@ -12,7 +12,7 @@ let token lexbuf =
 let parse_string (s:string) =
   Mcparser.expression token (Lexing.from_string s)
 
-let e = parse_string "let id = lambda x.x in id 1, id (), id false";;
+let e = parse_string "let add = lambda x.lambda y.x + y in (add 2) 3";;
 print_endline (Syntax.to_string e);;
 
 let tau = Typing.infer Type.gamma0 e;;
