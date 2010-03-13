@@ -1,16 +1,9 @@
 %{
   open Syntax
 
-  let mkexp d = { gamma = []; desc = d; tau = Type.tunit }
-  let mkabstr idl e =
-    match idl, e.desc with
-      | [], _ -> e
-      | idl, Abstr(idl', e') -> mkexp (Abstr(idl @ idl', e'))
-      | idl, _ -> mkexp (Abstr(idl, e))
-  let mkapp e el =
-    match e.desc with
-      | App(e', el') -> mkexp (App(e', el' @ el))
-      | _ -> mkexp (App(e, el))
+  let mkexp e = e
+  let mkabstr idl e = mkexp (Abstr(idl, e))
+  let mkapp e el = mkexp (App(e, el))
   let mkident id = mkexp (Ident(id))
   let mkinfix e1 op e2 = mkapp (mkident op) [e1; e2]
 %}

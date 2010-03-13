@@ -1,8 +1,4 @@
 type t =
-    { mutable gamma: Type.environment;
-      desc: desc;
-      mutable tau: Type.t }
-and desc =
   | Int of int
   | Char of char
   | Float of float
@@ -20,7 +16,7 @@ and desc =
 let rec to_string (e:t): string =
   let list_to_string sep to_string xl: string =
     List.fold_left (fun s x -> let sx = to_string x in if s = "" then sx else s ^ sep ^ sx) "" xl
-  in match e.desc with
+  in match e with
     | Int(i) ->
         string_of_int i
     | Char(c) ->

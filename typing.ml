@@ -6,7 +6,7 @@ exception Unknown_identifier of string
 
 let rec occur (alpha:Type.variable) (tau:Type.t): bool =
   match tau with
-    | Type.Arrow(tau, tau') -> occur alpha tau || occur alpha tau'
+    | Type.Arrow(taul, tau) -> List.exists (occur alpha) taul || occur alpha tau
     | Type.Tuple(taul)
     | Type.Constr(taul, _) -> List.exists (occur alpha) taul
     | Type.Variable(alpha') when alpha == alpha' -> true
@@ -17,9 +17,9 @@ let rec occur (alpha:Type.variable) (tau:Type.t): bool =
 let rec unify (tau1:Type.t) (tau2:Type.t): unit =
   try 
     match tau1, tau2 with
-      | Type.Arrow(tau1, tau1'), Type.Arrow(tau2, tau2') ->
-          unify tau1 tau2;
-          unify tau1' tau2'
+      | Type.Arrow(tau1l, tau1), Type.Arrow(tau2l, tau2) ->
+          List.iter2 unify tau1l tau2l;
+          unify tau1 tau2
       | Type.Tuple(tau1l), Type.Tuple(tau2l) ->
           List.iter2 unify tau1l tau2l
       | Type.Constr(tau1l, name1), Type.Constr(tau2l, name2) when name1 = name2 ->
@@ -40,7 +40,7 @@ let rec unify (tau1:Type.t) (tau2:Type.t): unit =
     | Invalid_argument("List.iter2") -> raise (Unify_error(tau1, tau2))
 
 let rec is_nonexpansive (e:t): bool =
-  match e.desc with
+  match e with
     | Int(_)
     | Char(_)
     | Float(_)
@@ -61,7 +61,7 @@ let generalize (gamma:Type.environment) (e:t) (tau:Type.t): Type.t =
   else tau
 
 let rec infer (gamma:Type.environment) (e:t): Type.t =
-  let tau = match e.desc with
+  let tau = match e with
     | Int(_) ->
         Type.tint
     | Char(_) ->
@@ -87,16 +87,16 @@ let rec infer (gamma:Type.environment) (e:t): Type.t =
         solve gamma e1 Type.tunit;
         infer gamma e2
     | App(e, el) ->
-        let tau' = Type.newvar () in
-        let tau = List.fold_right (fun e tau -> Type.Arrow(infer gamma e, tau)) el tau' in
-          solve gamma e tau;
-          tau'
+        let taul = List.map (infer gamma) el in
+        let tau = Type.newvar () in
+          solve gamma e (Type.Arrow(taul, tau));
+          tau
     | Abstr(idl, e) ->
-        let tau' = Type.newvar () in
         let taul = List.map (fun _ -> Type.newvar ()) idl in
-        let gamma' = List.fold_right2 (fun id tau gamma -> (id, tau) :: gamma) idl taul gamma in
-          solve gamma' e tau';
-          List.fold_right (fun tau tau' -> Type.Arrow(tau, tau')) taul tau'
+        let tau = Type.newvar () in
+        let gamma = List.fold_right2 (fun id tau gamma -> (id, tau) :: gamma) idl taul gamma in
+          solve gamma e tau;
+          Type.Arrow(taul, tau)
     | Let(id, e1, e2) ->
         let tau = infer gamma e1 in
           infer ((id, generalize gamma e1 tau) :: gamma) e2
@@ -109,10 +109,7 @@ let rec infer (gamma:Type.environment) (e:t): Type.t =
         let tau = Type.newvar () in
           solve ((id, tau) :: gamma) e1 tau;
           infer ((id, generalize gamma e1 tau) :: gamma) e2
-  in let tau = Type.normalize tau in
-    e.gamma <- gamma;
-    e.tau <- tau;
-    tau
+  in Type.normalize tau
 and solve (gamma:Type.environment) (e:t) (tau:Type.t) =
   try
     unify (infer gamma e) tau
