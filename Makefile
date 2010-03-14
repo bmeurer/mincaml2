@@ -1,9 +1,13 @@
 SOURCES=		\
+	builtin.ml	\
 	listutils.ml	\
+	id.ml		\
 	mclexer.ml	\
 	mclexer.mli	\
 	mcparser.ml	\
 	mcparser.mli	\
+	optimize0.ml	\
+	purity.ml	\
 	syntax.ml	\
 	type.ml		\
 	typing.ml

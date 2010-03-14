@@ -2,7 +2,7 @@
   open Syntax
 
   let mkexp e = e
-  let mkabstr idl e = mkexp (Abstr(idl, e))
+  let mkabstr idl e = mkexp (if idl = [] then e else (Abstr(idl, e)))
   let mkapp e el = mkexp (App(e, el))
   let mkident id = mkexp (Ident(id))
   let mkinfix e1 op e2 = mkapp (mkident op) [e1; e2]
@@ -96,8 +96,8 @@ expr:
     { mkexp (LetRec($3, mkabstr $4 $6, $8)) }
 | LET LPAREN ident_comma_list RPAREN EQUAL seq_expr IN seq_expr
     { mkexp (LetTuple($3, $6, $8)) }
-| LAMBDA IDENT DOT seq_expr
-    { mkabstr [$2] $4 }
+| LAMBDA ident_comma_list DOT seq_expr
+    { mkabstr $2 $4 }
 | expr_comma_list %prec below_COMMA
     { mkexp (Tuple(List.rev $1)) }
 | IF seq_expr THEN expr ELSE expr

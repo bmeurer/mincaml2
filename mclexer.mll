@@ -11,7 +11,7 @@
       "let", LET;
       "rec", REC;
       "then", THEN;
-      
+
       "land", INFIXOP3("land");
       "lor", INFIXOP3("lor");
       "lxor", INFIXOP3("lxor");
