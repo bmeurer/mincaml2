@@ -8,6 +8,7 @@
 #load "optimize0.cmo";;
 #load "mcparser.cmo";;
 #load "mclexer.cmo";;
+#load "codegen.cmo";;
 
 let tokenl = ref []
 let token lexbuf =
@@ -24,4 +25,7 @@ print_endline (Type.to_string (Typing.infer Builtin.gamma0 e));;
 
 let e' = Optimize0.optimize Builtin.sigma0 e;;
 print_endline (Syntax.to_string e');;
-Typing.infer Builtin.gamma0 e';;
+(*Typing.infer Builtin.gamma0 e';;*)
+
+let cg = Codegen.create "fact" in
+  Codegen.dump e' cg

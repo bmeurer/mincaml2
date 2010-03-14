@@ -241,8 +241,12 @@ and optimize_app sigma e el =
                                  Syntax.Tuple([e1; e2]),
                                  Syntax.App(Syntax.Ident("-"), [Syntax.Ident("t2"); Syntax.Ident("t1")])))
 *)
+    (* Optimizations for string concatenation *)
     | Syntax.Ident("^"), [Syntax.String(s1); Syntax.String(s2)] ->
         Syntax.String(s1 ^ s2)
+    | Syntax.Ident("^"), [Syntax.String(""); e]
+    | Syntax.Ident("^"), [e; Syntax.String("")] ->
+        e
     (* Optimizations for fst *)
     | Syntax.Ident("fst"), [e] ->
         optimize sigma (Syntax.LetTuple(["t1"; "t2"], e, Syntax.Ident("t1")))

@@ -1,5 +1,6 @@
 SOURCES=		\
 	builtin.ml	\
+	codegen.ml	\
 	listutils.ml	\
 	id.ml		\
 	mclexer.ml	\
