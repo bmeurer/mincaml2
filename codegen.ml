@@ -179,17 +179,8 @@ let rec builtin_integer (op:Id.t) (vl:Llvm.llvalue list) (cg:t): Llvm.llvalue =
              | "lsr"  -> Llvm.build_lshr
              | "asr"  -> Llvm.build_ashr
              | _      -> assert false) integerlhs integerrhs "integertmp" cg.cg_builder
-    | [v] when op = "lnot" && Llvm.type_of v = cg.cg_value_type ->
-        let notres = Llvm.build_not v "notres" cg.cg_builder in
-          Llvm.build_or notres (const_int 1 cg) "nottmp" cg.cg_builder
-    | [v] ->
-        let unaryarg = build_unbox v cg.cg_int_type "unaryarg" cg in
-          (match op with
-             | "~-"   -> Llvm.build_neg
-             | "lnot" -> Llvm.build_not
-             | _      -> assert false) unaryarg "unarytmp" cg.cg_builder
     | _ ->
-        build_trampoline ("integer$" ^ op) (if op = "~-" || op = "lnot" then 1 else 2) (builtin_integer op) cg
+        build_trampoline ("integer$" ^ op) 2 (builtin_integer op) cg
 
 let rec builtin_float (op:string) (vl:Llvm.llvalue list) (cg:t): Llvm.llvalue =
   match vl with
@@ -201,27 +192,8 @@ let rec builtin_float (op:string) (vl:Llvm.llvalue list) (cg:t): Llvm.llvalue =
              | "-." -> Llvm.build_fsub
              | "*." -> Llvm.build_fmul
              | _    -> assert false) floatlhs floatrhs "floattmp" cg.cg_builder
-    | [v] ->
-        let unaryarg = build_unbox v cg.cg_float_type "unaryarg" cg in
-          (match op with
-             | "~-." -> Llvm.build_fneg
-             | _     -> assert false) unaryarg "unarytmp" cg.cg_builder
     | _ ->
-        build_trampoline ("float$" ^ op) (if op = "~-." then 1 else 2) (builtin_float op) cg
-
-let rec builtin_fst (vl:Llvm.llvalue list) (cg:t): Llvm.llvalue =
-  match vl with
-    | [v] ->
-        build_proj v 0 "fst" cg
-    | _ ->
-        build_trampoline "fst" 1 builtin_fst cg
-
-let rec builtin_snd (vl:Llvm.llvalue list) (cg:t): Llvm.llvalue =
-  match vl with
-    | [v] ->
-        build_proj v 1 "snd" cg
-    | _ ->
-        build_trampoline "snd" 1 builtin_snd cg
+        build_trampoline ("float$" ^ op) 2 (builtin_float op) cg
 
 let rec builtin_ref (vl:Llvm.llvalue list) (cg:t): Llvm.llvalue =
   match vl with
@@ -234,8 +206,13 @@ let rec builtin_ref (vl:Llvm.llvalue list) (cg:t): Llvm.llvalue =
     | _ ->
         build_trampoline "ref" 1 builtin_ref cg
 
-let builtin_deref (vl:Llvm.llvalue list) (cg:t): Llvm.llvalue =
-  builtin_fst vl cg
+let rec builtin_deref (vl:Llvm.llvalue list) (cg:t): Llvm.llvalue =
+  match vl with
+    | [v] ->
+        let pointer = build_gep v 0 "pointer" cg in
+          Llvm.build_load pointer "boxed" cg.cg_builder
+    | _ ->
+        build_trampoline "deref" 1 builtin_deref cg
 
 let rec builtin_assign (vl:Llvm.llvalue list) (cg:t): Llvm.llvalue =
   match vl with
@@ -245,24 +222,6 @@ let rec builtin_assign (vl:Llvm.llvalue list) (cg:t): Llvm.llvalue =
           Llvm.build_store boxed pointer cg.cg_builder
     | _ ->
         build_trampoline "assign" 2 builtin_assign cg
-
-let rec builtin_incr (vl:Llvm.llvalue list) (cg:t): Llvm.llvalue =
-  match vl with
-    | [v] ->
-        let previous = builtin_deref [v] cg in
-        let result = builtin_integer "+" [previous; const_int 1 cg] cg in
-          builtin_assign [v; result] cg
-    | _ ->
-        build_trampoline "incr" 1 builtin_incr cg
-
-let rec builtin_decr(vl:Llvm.llvalue list) (cg:t): Llvm.llvalue =
-  match vl with
-    | [v] ->
-        let previous = builtin_deref [v] cg in
-        let result = builtin_integer "-" [previous; const_int 1 cg] cg in
-          builtin_assign [v; result] cg
-    | _ ->
-        build_trampoline "decr" 1 builtin_decr cg
 
 let rec builtin_ignore (vl:Llvm.llvalue list) (cg:t): Llvm.llvalue =
   match vl with
@@ -284,28 +243,21 @@ let builtins =
     ">=",     builtin_compare ">=";
     "==",     builtin_compare "==";
     "!=",     builtin_compare "!=";
-    "~-",     builtin_integer "~-";
     "+",      builtin_integer "+";
     "-",      builtin_integer "-";
     "*",      builtin_integer "*";
     "land",   builtin_integer "land";
     "lor",    builtin_integer "lor";
-    "lnot",   builtin_integer "lnot";
     "lsl",    builtin_integer "lsl";
     "lsr",    builtin_integer "lsr";
     "asr",    builtin_integer "asr";
-    "~-.",    builtin_float "~-.";
     "+.",     builtin_float "+.";
     "-.",     builtin_float "-.";
     "*.",     builtin_float "*.";
     (* TODO *)
-    "fst",    builtin_fst;
-    "snd",    builtin_snd;
     "ref",    builtin_ref;
     "!",      builtin_deref;
     ":=",     builtin_assign;
-    "incr",   builtin_incr;
-    "decr",   builtin_decr;
     "ignore", builtin_ignore;
   ]
 

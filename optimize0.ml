@@ -192,8 +192,6 @@ and optimize_app sigma e el =
         then Syntax.Ident("true")
         else Syntax.Ident("false")
     (* Arithmetics on ints *)
-    | Syntax.Ident("~-"), [Syntax.Int(i)] ->
-        Syntax.Int(- i)
     | Syntax.Ident("-"), [Syntax.Int(i1); Syntax.Int(i2)] ->
         Syntax.Int(i1 - i2)
     | Syntax.Ident("*"), [Syntax.Int(i1); Syntax.Int(i2)] ->
@@ -204,8 +202,6 @@ and optimize_app sigma e el =
         Syntax.Int(i1 lor i2)
     | Syntax.Ident("lxor"), [Syntax.Int(i1); Syntax.Int(i2)] ->
         Syntax.Int(i1 lxor i2)
-    | Syntax.Ident("lnot"), [Syntax.Int(i)] ->
-        Syntax.Int(lnot i)
     | Syntax.Ident("lsl"), [Syntax.Int(i1); Syntax.Int(i2)] ->
         Syntax.Int(i1 lsl i2)
     | Syntax.Ident("lsr"), [Syntax.Int(i1); Syntax.Int(i2)] ->
@@ -213,8 +209,6 @@ and optimize_app sigma e el =
     | Syntax.Ident("asr"), [Syntax.Int(i1); Syntax.Int(i2)] ->
         Syntax.Int(i1 asr i2)
     (* Arithmetics on floats *)
-    | Syntax.Ident("~-."), [Syntax.Float(f)] ->
-        Syntax.Float(-. f)
     | Syntax.Ident("+."), [Syntax.Float(f1); Syntax.Float(f2)] ->
         Syntax.Float(f1 +. f2)
     | Syntax.Ident("-."), [Syntax.Float(f1); Syntax.Float(f2)] ->
@@ -222,8 +216,6 @@ and optimize_app sigma e el =
     | Syntax.Ident("*."), [Syntax.Float(f1); Syntax.Float(f2)] ->
         Syntax.Float(f1 *. f2)
     (* Arithmetic optimizations *)
-    | Syntax.Ident(op), [Syntax.App(Syntax.Ident(op'), [e])] when op = op' && (op = "~-" || op = "~-.") ->
-        e
 (* TODO
     | Syntax.Ident("~-"), [Syntax.App(Syntax.Ident("+"), [e1; e2])] ->
         optimize (Syntax.LetTuple(["t1"; "t2"],
@@ -248,12 +240,6 @@ and optimize_app sigma e el =
     | Syntax.Ident("^"), [Syntax.String(""); e]
     | Syntax.Ident("^"), [e; Syntax.String("")] ->
         e
-    (* Optimizations for fst *)
-    | Syntax.Ident("fst"), [e] ->
-        optimize sigma (Syntax.LetTuple(["t1"; "t2"], e, Syntax.Ident("t1")))
-    (* Optimizations for snd *)
-    | Syntax.Ident("snd"), [e] ->
-        optimize sigma (Syntax.LetTuple(["t1"; "t2"], e, Syntax.Ident("t2")))
     (* Optimizations for imperative operators *)
     | Syntax.Ident("!"), [Syntax.App(Syntax.Ident("ref"), [e])] ->
         e
@@ -278,3 +264,10 @@ and optimize_app sigma e el =
         optimize sigma (Syntax.letify idl el e)
     | e, el ->
         Syntax.App(e, el)
+
+
+let pass (e:Syntax.t): Syntax.t =
+  let rec pass (e:Syntax.t): Syntax.t =
+    let e' = optimize Builtin.sigma0 (Builtin.desugar e) in
+      if e' = e then e' else pass e'
+  in pass e

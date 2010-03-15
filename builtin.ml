@@ -57,3 +57,54 @@ let builtins: t list =
 
 let gamma0 = List.map (fun (id, tau, _) -> (id, tau)) builtins
 let sigma0 = List.map (fun (id, _, purity) -> (id, purity)) builtins
+
+let desugar (e:Syntax.t): Syntax.t =
+  let e = Syntax.Let("~-",
+                     Syntax.Abstr(["x"],
+                                  Syntax.App(Syntax.Ident("-"),
+                                             [Syntax.Int(0);
+                                              Syntax.Ident("x")])),
+                     e) in
+  let e = Syntax.Let("lnot",
+                     Syntax.Abstr(["x"],
+                                  Syntax.App(Syntax.Ident("lxor"),
+                                             [Syntax.Int(-1);
+                                              Syntax.Ident("x")])),
+                     e) in
+  let e = Syntax.Let("~-.",
+                     Syntax.Abstr(["x"],
+                                  Syntax.App(Syntax.Ident("-."),
+                                             [Syntax.Float(0.);
+                                              Syntax.Ident("x")])),
+                     e) in
+  let e = Syntax.Let("fst",
+                     Syntax.Abstr(["tuple"],
+                                  Syntax.LetTuple(["fst"; "snd"],
+                                                  Syntax.Ident("tuple"),
+                                                  Syntax.Ident("fst"))),
+                     e) in
+  let e = Syntax.Let("snd",
+                     Syntax.Abstr(["tuple"],
+                                  Syntax.LetTuple(["fst"; "snd"],
+                                                  Syntax.Ident("tuple"),
+                                                  Syntax.Ident("snd"))),
+                     e) in
+  let e = Syntax.Let("incr",
+                     Syntax.Abstr(["cell"],
+                                  Syntax.App(Syntax.Ident(":="),
+                                             [Syntax.Ident("cell");
+                                              Syntax.App(Syntax.Ident("+"),
+                                                         [Syntax.App(Syntax.Ident("!"),
+                                                                     [Syntax.Ident("cell")]);
+                                                          Syntax.Int(1)])])),
+                     e) in
+  let e = Syntax.Let("decr",
+                     Syntax.Abstr(["cell"],
+                                  Syntax.App(Syntax.Ident(":="),
+                                             [Syntax.Ident("cell");
+                                              Syntax.App(Syntax.Ident("-"),
+                                                         [Syntax.App(Syntax.Ident("!"),
+                                                                     [Syntax.Ident("cell")]);
+                                                          Syntax.Int(1)])])),
+                     e) in
+    e
