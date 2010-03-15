@@ -153,11 +153,11 @@ let rec builtin_compare (op:Id.t) (vl:Llvm.llvalue list) (cg:t): Llvm.llvalue =
       | ">="        -> Llvm.Icmp.Sge, Llvm.Fcmp.Oge
       | _           -> assert false
   in match vl, List.map Llvm.type_of vl with
-    | [v1; v2], tyl when List.exists ((=) cg.cg_i1_type) tyl ->
+    | [v1; v2], [ty1; ty2] when ty1 = cg.cg_i1_type || ty2 = cg.cg_i1_type ->
         let cmplhs = build_unbox v1 cg.cg_i1_type "cmplhs" cg in
         let cmprhs = build_unbox v2 cg.cg_i1_type "cmprhs" cg in
           Llvm.build_icmp (fst (op_to_cmp op)) cmplhs cmprhs "cmptmp" cg.cg_builder
-    | [v1; v2], tyl when List.exists ((=) cg.cg_int_type) tyl ->
+    | [v1; v2], [ty1; ty2] when ty1 = cg.cg_int_type || ty2 = cg.cg_int_type ->
         let cmplhs = build_unbox v1 cg.cg_int_type "cmplhs" cg in
         let cmprhs = build_unbox v2 cg.cg_int_type "cmprhs" cg in
           Llvm.build_icmp (fst (op_to_cmp op)) cmplhs cmprhs "cmptmp" cg.cg_builder
@@ -403,7 +403,11 @@ let create (name:string): t =
   let cg_int_type = Llvm.integer_type cg_context Sys.word_size in
   let cg_float_type = Llvm.double_type cg_context in
   let cg_value_type = Llvm.pointer_type (Llvm.pointer_type cg_int_type) in
-  let cg_floatbox_type = Llvm.struct_type cg_context [|cg_int_type; cg_float_type|] in
+  let cg_floatbox_type = Llvm.struct_type cg_context [|cg_value_type; cg_float_type|] in
+  let cg_alloc_func = (Llvm.declare_function
+                         "malloc"
+                         (Llvm.function_type cg_value_type [|cg_int_type|])
+                         cg_module) in
   let cg_alloc_float_func = (Llvm.declare_function
                                "mincaml2_alloc_float"
                                (Llvm.function_type cg_value_type [|cg_float_type|])
@@ -416,10 +420,6 @@ let create (name:string): t =
                            "mincaml2_compare"
                            (Llvm.function_type cg_value_type [|cg_value_type; cg_value_type|])
                            cg_module) in
-    (* TODO *)
-    Llvm.set_function_call_conv Llvm.CallConv.fast cg_alloc_float_func;
-    Llvm.set_function_call_conv Llvm.CallConv.fast cg_alloc_tuple_func;
-    Llvm.set_function_call_conv Llvm.CallConv.fast cg_compare_func;
     ignore (Llvm.define_type_name "floatbox" cg_floatbox_type cg_module);
     ignore (Llvm.define_type_name "value" cg_value_type cg_module);
     Llvm_scalar_opts.add_instruction_combination cg_fpmanager;
@@ -427,17 +427,48 @@ let create (name:string): t =
     Llvm_scalar_opts.add_gvn cg_fpmanager;
     Llvm_scalar_opts.add_cfg_simplification cg_fpmanager;
     ignore (Llvm.PassManager.initialize cg_fpmanager);
-    { cg_context = cg_context;
-      cg_module = cg_module;
-      cg_builder = cg_builder;
-      cg_fpmanager = cg_fpmanager;
-      cg_i1_type = cg_i1_type;
-      cg_int_type = cg_int_type;
-      cg_float_type = cg_float_type;
-      cg_floatbox_type = cg_floatbox_type;
-      cg_value_type = cg_value_type;
-      cg_alloc_float_func = cg_alloc_float_func;
-      cg_alloc_tuple_func = cg_alloc_tuple_func;
-      cg_compare_func = cg_compare_func }
-
-
+    let cg = { cg_context = cg_context;
+               cg_module = cg_module;
+               cg_builder = cg_builder;
+               cg_fpmanager = cg_fpmanager;
+               cg_i1_type = cg_i1_type;
+               cg_int_type = cg_int_type;
+               cg_float_type = cg_float_type;
+               cg_floatbox_type = cg_floatbox_type;
+               cg_value_type = cg_value_type;
+               cg_alloc_float_func = cg_alloc_float_func;
+               cg_alloc_tuple_func = cg_alloc_tuple_func;
+               cg_compare_func = cg_compare_func } in
+      (let entry = Llvm.append_block cg_context "entry" cg_alloc_float_func in
+         Llvm.set_function_call_conv Llvm.CallConv.fast cg_alloc_float_func;
+         Llvm.set_linkage Llvm.Linkage.Private cg_alloc_float_func;
+         Llvm.set_value_name "x" (Llvm.params cg_alloc_float_func).(0);
+         Llvm.position_at_end entry cg_builder;
+         let fbsize = Llvm.size_of cg_floatbox_type in
+         let fbraw = Llvm.build_call cg_alloc_func [|fbsize|] "fbraw" cg_builder in
+         let fbtype = Llvm.pointer_type cg_floatbox_type in
+         let fbptr = Llvm.build_bitcast fbraw fbtype "fbptr" cg_builder in
+         let tagptr = Llvm.build_struct_gep fbptr 0 "tagptr" cg_builder in
+         let tagval = Llvm.const_inttoptr (const_int tag_float cg) cg_value_type in
+         let floatptr = Llvm.build_struct_gep fbptr 1 "floatptr" cg_builder in
+           ignore (Llvm.build_store tagval tagptr cg_builder);
+           ignore (Llvm.build_store (Llvm.params cg_alloc_float_func).(0) floatptr cg_builder);
+           ignore (Llvm.build_ret fbraw cg_builder);
+           Llvm_analysis.assert_valid_function cg_alloc_float_func;
+           ignore (Llvm.PassManager.run_function cg_alloc_float_func cg_fpmanager));
+      (let entry = Llvm.append_block cg_context "entry" cg_alloc_tuple_func in
+         Llvm.set_function_call_conv Llvm.CallConv.fast cg_alloc_tuple_func;
+         Llvm.set_linkage Llvm.Linkage.Private cg_alloc_tuple_func;
+         Llvm.set_value_name "n" (Llvm.params cg_alloc_tuple_func).(0);
+         Llvm.position_at_end entry cg_builder;
+         let count = Llvm.build_add (Llvm.params cg_alloc_tuple_func).(0) (const_int 1 cg) "count" cg_builder in
+         let size = Llvm.build_mul count (Llvm.size_of cg_value_type) "size" cg_builder in
+         let raw = Llvm.build_call cg_alloc_func [|size|] "raw" cg_builder in
+         let ptr = Llvm.build_bitcast raw (Llvm.pointer_type cg_value_type) "ptr" cg_builder in
+         let tagptr = Llvm.build_gep ptr [|const_i32 0 cg|] "tagptr" cg_builder in
+         let tagval = Llvm.const_inttoptr (const_int tag_tuple cg) cg_value_type in
+           ignore (Llvm.build_store tagval tagptr cg_builder);
+           ignore (Llvm.build_ret raw cg_builder);
+           Llvm_analysis.assert_valid_function cg_alloc_tuple_func;
+           ignore (Llvm.PassManager.run_function cg_alloc_tuple_func cg_fpmanager));
+      cg
