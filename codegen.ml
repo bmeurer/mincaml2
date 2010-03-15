@@ -3,7 +3,6 @@ type t =
       cg_context:          Llvm.llcontext;
       cg_module:           Llvm.llmodule;
       cg_builder:          Llvm.llbuilder;
-      cg_provider:         Llvm.llmoduleprovider;
       cg_fpmanager:        [ `Function ] Llvm.PassManager.t;
 
       cg_i1_type:          Llvm.lltype;
@@ -23,13 +22,17 @@ type t =
  **)
 
 let const_unit (cg:t): Llvm.llvalue =
-  Llvm.const_null cg.cg_value_type
+  Llvm.undef cg.cg_value_type
 let const_int (i:int) (cg:t): Llvm.llvalue =
   Llvm.const_int cg.cg_int_type i
 let const_i32 (i:int) (cg:t): Llvm.llvalue =
   Llvm.const_int (Llvm.i32_type cg.cg_context) i
 let const_float (f:float) (cg:t): Llvm.llvalue =
   Llvm.const_float cg.cg_float_type f
+
+let tag_float = 0
+let tag_tuple = 1
+let tag_string = 2
 
 
 (**
@@ -47,6 +50,12 @@ let build_box (v:Llvm.llvalue) (name:string) (cg:t): Llvm.llvalue =
         let v_shl = Llvm.build_shl v (const_int 1 cg) (name ^ "_shl") cg.cg_builder in
         let v_or = Llvm.build_or v_shl (const_int 1 cg) (name ^ "_shl_or") cg.cg_builder in
           Llvm.build_inttoptr v_or cg.cg_value_type name cg.cg_builder
+    | vty when vty = cg.cg_float_type && Llvm.is_constant v ->
+        let boxed = Llvm.const_struct cg.cg_context [|const_int tag_float cg; v|] in
+        let global = Llvm.define_qualified_global "mincaml2__const_float" boxed 0 cg.cg_module in
+          Llvm.set_global_constant true global;
+          Llvm.set_linkage Llvm.Linkage.Private global;
+          Llvm.build_bitcast global cg.cg_value_type name cg.cg_builder
     | vty when vty = cg.cg_float_type ->
         let call = Llvm.build_call cg.cg_alloc_float_func [|v|] name cg.cg_builder in
           Llvm.set_instruction_call_conv Llvm.CallConv.fast call;
@@ -114,11 +123,12 @@ let build_function (name:string) (arity:int) (code:Llvm.llvalue -> Llvm.llvalue 
                     | name when Llvm.lookup_global name cg.cg_module = None -> name
                     | _ -> generate (n + 1)
                 in if Llvm.lookup_global name cg.cg_module = None then name else generate 1) in
-  let fncode fn vl cg = build_box (code fn vl cg) "result" cg in
+  let fncode fn vl cg =
+    Llvm.set_function_call_conv Llvm.CallConv.fast fn;
+    Llvm.set_linkage Llvm.Linkage.Private fn;
+    build_box (code fn vl cg) "result" cg in
   let fntype = Llvm.function_type cg.cg_value_type (Array.make arity cg.cg_value_type) in
   let fn = build_native_function fnname fntype fncode cg in
-      Llvm.set_function_call_conv Llvm.CallConv.fast fn;
-      Llvm.set_linkage Llvm.Linkage.Private fn;
       fn
 
 let build_trampoline (name:string) (arity:int) (code:Llvm.llvalue list -> t -> Llvm.llvalue) (cg:t): Llvm.llvalue =
@@ -151,8 +161,10 @@ let rec builtin_compare (op:Id.t) (vl:Llvm.llvalue list) (cg:t): Llvm.llvalue =
         let cmplhs = build_unbox v1 cg.cg_int_type "cmplhs" cg in
         let cmprhs = build_unbox v2 cg.cg_int_type "cmprhs" cg in
           Llvm.build_icmp (fst (op_to_cmp op)) cmplhs cmprhs "cmptmp" cg.cg_builder
-    | [v1; v2], [ty1; ty2] when ty1 = cg.cg_float_type && ty2 = cg.cg_float_type ->
-        Llvm.build_fcmp (snd (op_to_cmp op)) v1 v2 "cmptmp" cg.cg_builder
+    | [v1; v2], [ty1; ty2] when ty1 = cg.cg_float_type || ty2 = cg.cg_float_type ->
+        let cmplhs = build_unbox v1 cg.cg_float_type "cmplhs" cg in
+        let cmprhs = build_unbox v2 cg.cg_float_type "cmprhs" cg in
+          Llvm.build_fcmp (snd (op_to_cmp op)) cmplhs cmprhs "cmptmp" cg.cg_builder
     | [v1; v2], [ty1; ty2] when (op = "==" || op = "!=") && ty1 = cg.cg_value_type && ty2 = cg.cg_value_type ->
         Llvm.build_icmp (fst (op_to_cmp op)) v1 v2 "cmptmp" cg.cg_builder
     | [v1; v2], _ ->
@@ -209,8 +221,7 @@ let rec builtin_ref (vl:Llvm.llvalue list) (cg:t): Llvm.llvalue =
 let rec builtin_deref (vl:Llvm.llvalue list) (cg:t): Llvm.llvalue =
   match vl with
     | [v] ->
-        let pointer = build_gep v 0 "pointer" cg in
-          Llvm.build_load pointer "boxed" cg.cg_builder
+        build_proj v 0 "deref" cg
     | _ ->
         build_trampoline "deref" 1 builtin_deref cg
 
@@ -387,13 +398,12 @@ let create (name:string): t =
   let cg_context = Llvm.create_context () in
   let cg_module = Llvm.create_module cg_context name in
   let cg_builder = Llvm.builder cg_context in
-  let cg_provider = Llvm.ModuleProvider.create cg_module in
-  let cg_fpmanager = Llvm.PassManager.create_function cg_provider in
+  let cg_fpmanager = Llvm.PassManager.create_function cg_module in
   let cg_i1_type = Llvm.i1_type cg_context in
   let cg_int_type = Llvm.integer_type cg_context Sys.word_size in
   let cg_float_type = Llvm.double_type cg_context in
   let cg_value_type = Llvm.pointer_type (Llvm.pointer_type cg_int_type) in
-  let cg_floatbox_type = Llvm.struct_type cg_context [|cg_value_type; cg_float_type|] in
+  let cg_floatbox_type = Llvm.struct_type cg_context [|cg_int_type; cg_float_type|] in
   let cg_alloc_float_func = (Llvm.declare_function
                                "mincaml2_alloc_float"
                                (Llvm.function_type cg_value_type [|cg_float_type|])
@@ -412,15 +422,14 @@ let create (name:string): t =
     Llvm.set_function_call_conv Llvm.CallConv.fast cg_compare_func;
     ignore (Llvm.define_type_name "floatbox" cg_floatbox_type cg_module);
     ignore (Llvm.define_type_name "value" cg_value_type cg_module);
+    Llvm_scalar_opts.add_instruction_combination cg_fpmanager;
     Llvm_scalar_opts.add_reassociation cg_fpmanager;
     Llvm_scalar_opts.add_gvn cg_fpmanager;
-(*    Llvm_scalar_opts.add_instruction_combining cg_fpmanager;*)
     Llvm_scalar_opts.add_cfg_simplification cg_fpmanager;
     ignore (Llvm.PassManager.initialize cg_fpmanager);
     { cg_context = cg_context;
       cg_module = cg_module;
       cg_builder = cg_builder;
-      cg_provider = cg_provider;
       cg_fpmanager = cg_fpmanager;
       cg_i1_type = cg_i1_type;
       cg_int_type = cg_int_type;
