@@ -20,7 +20,7 @@ all: $(OBJECTS)
 .SUFFIXES: .ml .mli .mll .mly .cmi .cmo .cmx
 
 .ml.cmo:
-	ocamlc.opt -c -o $@ $<
+	ocamlc.opt -g -c -o $@ $<
 
 .mli.cmi:
 	ocamlc.opt -c -o $@ $<

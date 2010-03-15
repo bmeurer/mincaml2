@@ -17,7 +17,7 @@ let remove (x:'a) (xl:'a list): 'a list =
   let rec remove_aux xl tl =
     match xl with
       | [] -> List.rev tl
-      | x' :: xl -> if x <> x' then remove_aux xl (x :: tl) else remove_aux xl tl
+      | x' :: xl -> if x <> x' then remove_aux xl (x' :: tl) else remove_aux xl tl
   in remove_aux xl []
 
 let to_string (separator:string) (to_string:'a -> string) (xl:'a list): string =

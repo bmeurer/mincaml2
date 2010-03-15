@@ -1,54 +1,21 @@
 type t =
     { 
-      cg_context:      Llvm.llcontext;
-      cg_module:       Llvm.llmodule;
-      cg_builder:      Llvm.llbuilder;
-      cg_provider:     Llvm.llmoduleprovider;
-      cg_fpmanager:    [ `Function ] Llvm.PassManager.t;
+      cg_context:          Llvm.llcontext;
+      cg_module:           Llvm.llmodule;
+      cg_builder:          Llvm.llbuilder;
+      cg_provider:         Llvm.llmoduleprovider;
+      cg_fpmanager:        [ `Function ] Llvm.PassManager.t;
 
-      cg_i1_type:      Llvm.lltype;
-      cg_int_type:     Llvm.lltype;
-      cg_float_type:   Llvm.lltype;
-      cg_value_type:   Llvm.lltype;
+      cg_i1_type:          Llvm.lltype;
+      cg_int_type:         Llvm.lltype;
+      cg_float_type:       Llvm.lltype;
+      cg_floatbox_type:    Llvm.lltype;
+      cg_value_type:       Llvm.lltype;
 
-      cg_compare_func: Llvm.llvalue;
+      cg_alloc_float_func: Llvm.llvalue;
+      cg_alloc_tuple_func: Llvm.llvalue;
+      cg_compare_func:     Llvm.llvalue;
     }
-
-
-(**
- ** Context management
- **)
-
-let create (name:string): t =
-  let cg_context = Llvm.create_context () in
-  let cg_module = Llvm.create_module cg_context name in
-  let cg_builder = Llvm.builder cg_context in
-  let cg_provider = Llvm.ModuleProvider.create cg_module in
-  let cg_fpmanager = Llvm.PassManager.create_function cg_provider in
-  let cg_i1_type = Llvm.i1_type cg_context in
-  let cg_int_type = Llvm.integer_type cg_context Sys.word_size in
-  let cg_float_type = Llvm.double_type cg_context in
-  let cg_value_type = Llvm.pointer_type cg_int_type in
-  let cg_compare_func = (Llvm.declare_function
-                           "mincaml2__rt_compare"
-                           (Llvm.function_type cg_value_type [|cg_value_type; cg_value_type|])
-                           cg_module) in
-    ignore (Llvm.define_type_name "value" cg_value_type cg_module);
-    Llvm_scalar_opts.add_instruction_combining cg_fpmanager;
-    Llvm_scalar_opts.add_reassociation cg_fpmanager;
-    Llvm_scalar_opts.add_gvn cg_fpmanager;
-    Llvm_scalar_opts.add_cfg_simplification cg_fpmanager;
-    ignore (Llvm.PassManager.initialize cg_fpmanager);
-    { cg_context = cg_context;
-      cg_module = cg_module;
-      cg_builder = cg_builder;
-      cg_provider = cg_provider;
-      cg_fpmanager = cg_fpmanager;
-      cg_i1_type = cg_i1_type;
-      cg_int_type = cg_int_type;
-      cg_float_type = cg_float_type;
-      cg_value_type = cg_value_type;
-      cg_compare_func = cg_compare_func }
 
 
 (**
@@ -59,6 +26,8 @@ let const_unit (cg:t): Llvm.llvalue =
   Llvm.const_null cg.cg_value_type
 let const_int (i:int) (cg:t): Llvm.llvalue =
   Llvm.const_int cg.cg_int_type i
+let const_i32 (i:int) (cg:t): Llvm.llvalue =
+  Llvm.const_int (Llvm.i32_type cg.cg_context) i
 let const_float (f:float) (cg:t): Llvm.llvalue =
   Llvm.const_float cg.cg_float_type f
 
@@ -78,6 +47,11 @@ let build_box (v:Llvm.llvalue) (name:string) (cg:t): Llvm.llvalue =
         let v_shl = Llvm.build_shl v (const_int 1 cg) (name ^ "_shl") cg.cg_builder in
         let v_or = Llvm.build_or v_shl (const_int 1 cg) (name ^ "_shl_or") cg.cg_builder in
           Llvm.build_inttoptr v_or cg.cg_value_type name cg.cg_builder
+    | vty when vty = cg.cg_float_type ->
+        let call = Llvm.build_call cg.cg_alloc_float_func [|v|] name cg.cg_builder in
+          Llvm.set_instruction_call_conv Llvm.CallConv.fast call;
+          Llvm.set_tail_call true call;
+          call
     | vty when Llvm.classify_type vty = Llvm.TypeKind.Pointer ->
         Llvm.build_bitcast v cg.cg_value_type name cg.cg_builder
     | vty -> failwith ("Cannot box value of type " ^ (Llvm.string_of_lltype vty))
@@ -91,9 +65,27 @@ let build_unbox (v:Llvm.llvalue) (ty:Llvm.lltype) (name:string) (cg:t): Llvm.llv
       | vty, ty when vty = cg.cg_value_type && ty = cg.cg_int_type ->
           let v_or = Llvm.build_ptrtoint v ty (name ^ "_or") cg.cg_builder in
             Llvm.build_ashr v_or (const_int 1 cg) name cg.cg_builder
+      | vty, ty when vty = cg.cg_value_type && ty = cg.cg_float_type ->
+          let floatbox = Llvm.build_bitcast v (Llvm.pointer_type cg.cg_floatbox_type) "floatbox" cg.cg_builder in
+          let floatptr = Llvm.build_struct_gep floatbox 1 "floatptr" cg.cg_builder in
+            Llvm.build_load floatptr name cg.cg_builder
       | vty, ty when Llvm.classify_type ty = Llvm.TypeKind.Pointer && vty = cg.cg_value_type ->
           Llvm.build_bitcast v ty name cg.cg_builder
       | vty, ty -> failwith ("Cannot unbox " ^ (Llvm.string_of_lltype vty) ^ " to " ^ (Llvm.string_of_lltype ty))
+
+let build_gep (tuple:Llvm.llvalue) (n:int) (name:string) (cg:t): Llvm.llvalue =
+  let ptrtmp = Llvm.build_bitcast tuple (Llvm.pointer_type cg.cg_value_type) "ptrtmp" cg.cg_builder in
+    Llvm.build_gep ptrtmp [|const_i32 (n + 1) cg|] name cg.cg_builder
+
+let build_proj (tuple:Llvm.llvalue) (n:int) (name:string) (cg:t): Llvm.llvalue =
+  let pointer = build_gep tuple n "pointer" cg in
+    Llvm.build_load pointer name cg.cg_builder
+
+let build_tuple (n:int) (name:string) (cg:t): Llvm.llvalue =
+  let call = Llvm.build_call cg.cg_alloc_tuple_func [|const_int n cg|] name cg.cg_builder in
+    Llvm.set_instruction_call_conv Llvm.CallConv.fast call;
+    Llvm.set_tail_call true call;
+    call
 
 let build_call (fn:Llvm.llvalue) (args:Llvm.llvalue list) (name:string) (cg:t) =
   let fntype = Llvm.function_type cg.cg_value_type (Array.make (List.length args) cg.cg_value_type) in
@@ -103,6 +95,18 @@ let build_call (fn:Llvm.llvalue) (args:Llvm.llvalue list) (name:string) (cg:t) =
     Llvm.set_tail_call true fncall;
     fncall
 
+let build_native_function fnname fntype (fncode:Llvm.llvalue -> Llvm.llvalue list -> t -> Llvm.llvalue) (cg:t) =
+  let bb = (try Some(Llvm.insertion_block cg.cg_builder) with Not_found -> None) in
+  let fn = Llvm.declare_function fnname fntype cg.cg_module in
+  let entry = Llvm.append_block cg.cg_context "entry" fn in
+    Llvm.position_at_end entry cg.cg_builder;
+    let result = fncode fn (Array.to_list (Llvm.params fn)) cg in
+      ignore (Llvm.build_ret result cg.cg_builder);
+      Llvm_analysis.assert_valid_function fn;
+      ignore (Llvm.PassManager.run_function fn cg.cg_fpmanager);
+      (match bb with Some(bb) -> Llvm.position_at_end bb cg.cg_builder | None -> ());
+      fn
+
 let build_function (name:string) (arity:int) (code:Llvm.llvalue -> Llvm.llvalue list -> t -> Llvm.llvalue) (cg:t) =
   let fnname = (let name = "mincaml2__func_" ^ name in
                 let rec generate (n:int): string =
@@ -110,18 +114,11 @@ let build_function (name:string) (arity:int) (code:Llvm.llvalue -> Llvm.llvalue 
                     | name when Llvm.lookup_global name cg.cg_module = None -> name
                     | _ -> generate (n + 1)
                 in if Llvm.lookup_global name cg.cg_module = None then name else generate 1) in
-  let bb = Llvm.insertion_block cg.cg_builder in
+  let fncode fn vl cg = build_box (code fn vl cg) "result" cg in
   let fntype = Llvm.function_type cg.cg_value_type (Array.make arity cg.cg_value_type) in
-  let fn = Llvm.declare_function fnname fntype cg.cg_module in
-  let entry = Llvm.append_block cg.cg_context "entry" fn in
-    Llvm.position_at_end entry cg.cg_builder;
-    let result = build_box (code fn (Array.to_list (Llvm.params fn)) cg) "result" cg in
-      ignore (Llvm.build_ret result cg.cg_builder);
+  let fn = build_native_function fnname fntype fncode cg in
       Llvm.set_function_call_conv Llvm.CallConv.fast fn;
       Llvm.set_linkage Llvm.Linkage.Private fn;
-      Llvm_analysis.assert_valid_function fn;
-      ignore (Llvm.PassManager.run_function fn cg.cg_fpmanager);
-      Llvm.position_at_end bb cg.cg_builder;
       fn
 
 let build_trampoline (name:string) (arity:int) (code:Llvm.llvalue list -> t -> Llvm.llvalue) (cg:t): Llvm.llvalue =
@@ -163,10 +160,8 @@ let rec builtin_compare (op:Id.t) (vl:Llvm.llvalue list) (cg:t): Llvm.llvalue =
         let cmprhs = build_box v2 "cmprhs" cg in
         let cmptmp = build_call cg.cg_compare_func [cmplhs; cmprhs] "cmptmp" cg in
           builtin_compare op [cmptmp; const_int 0 cg] cg
-    | [], _ ->
-        build_trampoline ("compare$" ^ op) 2 (builtin_compare op) cg
     | _ ->
-        assert false
+        build_trampoline ("compare$" ^ op) 2 (builtin_compare op) cg
 
 let rec builtin_integer (op:Id.t) (vl:Llvm.llvalue list) (cg:t): Llvm.llvalue =
   match vl with
@@ -193,10 +188,8 @@ let rec builtin_integer (op:Id.t) (vl:Llvm.llvalue list) (cg:t): Llvm.llvalue =
              | "~-"   -> Llvm.build_neg
              | "lnot" -> Llvm.build_not
              | _      -> assert false) unaryarg "unarytmp" cg.cg_builder
-    | [] ->
-        build_trampoline ("integer$" ^ op) (if op = "~-" || op = "lnot" then 1 else 2) (builtin_integer op) cg
     | _ ->
-        assert false
+        build_trampoline ("integer$" ^ op) (if op = "~-" || op = "lnot" then 1 else 2) (builtin_integer op) cg
 
 let rec builtin_float (op:string) (vl:Llvm.llvalue list) (cg:t): Llvm.llvalue =
   match vl with
@@ -213,20 +206,70 @@ let rec builtin_float (op:string) (vl:Llvm.llvalue list) (cg:t): Llvm.llvalue =
           (match op with
              | "~-." -> Llvm.build_fneg
              | _     -> assert false) unaryarg "unarytmp" cg.cg_builder
-    | [] ->
-        build_trampoline ("float$" ^ op) (if op = "~-." then 1 else 2) (builtin_float op) cg
     | _ ->
-        assert false
+        build_trampoline ("float$" ^ op) (if op = "~-." then 1 else 2) (builtin_float op) cg
+
+let rec builtin_fst (vl:Llvm.llvalue list) (cg:t): Llvm.llvalue =
+  match vl with
+    | [v] ->
+        build_proj v 0 "fst" cg
+    | _ ->
+        build_trampoline "fst" 1 builtin_fst cg
+
+let rec builtin_snd (vl:Llvm.llvalue list) (cg:t): Llvm.llvalue =
+  match vl with
+    | [v] ->
+        build_proj v 1 "snd" cg
+    | _ ->
+        build_trampoline "snd" 1 builtin_snd cg
+
+let rec builtin_ref (vl:Llvm.llvalue list) (cg:t): Llvm.llvalue =
+  match vl with
+    | [v] ->
+        let cell = build_tuple 1 "cell" cg in
+        let pointer = build_gep cell 0 "pointer" cg in
+        let boxed = build_box v "boxed" cg in
+          ignore (Llvm.build_store boxed pointer cg.cg_builder);
+          cell
+    | _ ->
+        build_trampoline "ref" 1 builtin_ref cg
+
+let builtin_deref (vl:Llvm.llvalue list) (cg:t): Llvm.llvalue =
+  builtin_fst vl cg
+
+let rec builtin_assign (vl:Llvm.llvalue list) (cg:t): Llvm.llvalue =
+  match vl with
+    | [v1; v2] ->
+        let pointer = build_gep v1 0 "pointer" cg in
+        let boxed = build_box v2 "boxed" cg in
+          Llvm.build_store boxed pointer cg.cg_builder
+    | _ ->
+        build_trampoline "assign" 2 builtin_assign cg
+
+let rec builtin_incr (vl:Llvm.llvalue list) (cg:t): Llvm.llvalue =
+  match vl with
+    | [v] ->
+        let previous = builtin_deref [v] cg in
+        let result = builtin_integer "+" [previous; const_int 1 cg] cg in
+          builtin_assign [v; result] cg
+    | _ ->
+        build_trampoline "incr" 1 builtin_incr cg
+
+let rec builtin_decr(vl:Llvm.llvalue list) (cg:t): Llvm.llvalue =
+  match vl with
+    | [v] ->
+        let previous = builtin_deref [v] cg in
+        let result = builtin_integer "-" [previous; const_int 1 cg] cg in
+          builtin_assign [v; result] cg
+    | _ ->
+        build_trampoline "decr" 1 builtin_decr cg
 
 let rec builtin_ignore (vl:Llvm.llvalue list) (cg:t): Llvm.llvalue =
   match vl with
-    | [v] ->
-        Llvm.insert_into_builder v "unused" cg.cg_builder;
+    | [_] ->
         const_unit cg
-    | [] ->
-        build_trampoline "ignore" 1 builtin_ignore cg
     | _ ->
-        assert false
+        build_trampoline "ignore" 1 builtin_ignore cg
 
 let builtins =
   [
@@ -256,6 +299,13 @@ let builtins =
     "-.",     builtin_float "-.";
     "*.",     builtin_float "*.";
     (* TODO *)
+    "fst",    builtin_fst;
+    "snd",    builtin_snd;
+    "ref",    builtin_ref;
+    "!",      builtin_deref;
+    ":=",     builtin_assign;
+    "incr",   builtin_incr;
+    "decr",   builtin_decr;
     "ignore", builtin_ignore;
   ]
 
@@ -299,7 +349,7 @@ let rec generate (eta:environment) (e:Syntax.t) (cg:t): Llvm.llvalue =
     | Syntax.Tuple(el) ->
         assert false
     | Syntax.Sequence(e1, e2) ->
-        Llvm.insert_into_builder (generate eta e1 cg) "unused" cg.cg_builder;
+        ignore (generate eta e1 cg);
         generate eta e2 cg
     | Syntax.App(e, el) ->
         generate_app eta e el cg
@@ -371,11 +421,62 @@ and generate_letrec eta id e1 e2 cg =
         raise (Invalid_argument("Codegen.generate_letrec"))
 
 let dump (e:Syntax.t) (cg:t): unit =
-  let main = Llvm.declare_function "main" (Llvm.function_type cg.cg_int_type [||]) cg.cg_module in
-  let entry = Llvm.append_block cg.cg_context "entry" main in
-    Llvm.position_at_end entry cg.cg_builder;
-    let result = generate eta0 e cg in
-      ignore (Llvm.build_ret (build_unbox result cg.cg_int_type "result" cg) cg.cg_builder);
-      Llvm_analysis.assert_valid_function main;
-      ignore (Llvm.PassManager.run_function main cg.cg_fpmanager);
-      Llvm.dump_module cg.cg_module
+  let maincode _ _ cg = build_unbox (generate eta0 e cg) cg.cg_int_type "result" cg in
+  let maintype = Llvm.function_type cg.cg_int_type [||] in
+    ignore (build_native_function "main" maintype maincode cg);
+    Llvm.dump_module cg.cg_module
+
+
+(**
+ ** Context management
+ **)
+
+let create (name:string): t =
+  let cg_context = Llvm.create_context () in
+  let cg_module = Llvm.create_module cg_context name in
+  let cg_builder = Llvm.builder cg_context in
+  let cg_provider = Llvm.ModuleProvider.create cg_module in
+  let cg_fpmanager = Llvm.PassManager.create_function cg_provider in
+  let cg_i1_type = Llvm.i1_type cg_context in
+  let cg_int_type = Llvm.integer_type cg_context Sys.word_size in
+  let cg_float_type = Llvm.double_type cg_context in
+  let cg_value_type = Llvm.pointer_type (Llvm.pointer_type cg_int_type) in
+  let cg_floatbox_type = Llvm.struct_type cg_context [|cg_value_type; cg_float_type|] in
+  let cg_alloc_float_func = (Llvm.declare_function
+                               "mincaml2_alloc_float"
+                               (Llvm.function_type cg_value_type [|cg_float_type|])
+                               cg_module) in
+  let cg_alloc_tuple_func = (Llvm.declare_function
+                               "mincaml2_alloc_tuple"
+                               (Llvm.function_type cg_value_type [|cg_int_type|])
+                               cg_module) in
+  let cg_compare_func = (Llvm.declare_function
+                           "mincaml2_compare"
+                           (Llvm.function_type cg_value_type [|cg_value_type; cg_value_type|])
+                           cg_module) in
+    (* TODO *)
+    Llvm.set_function_call_conv Llvm.CallConv.fast cg_alloc_float_func;
+    Llvm.set_function_call_conv Llvm.CallConv.fast cg_alloc_tuple_func;
+    Llvm.set_function_call_conv Llvm.CallConv.fast cg_compare_func;
+    ignore (Llvm.define_type_name "floatbox" cg_floatbox_type cg_module);
+    ignore (Llvm.define_type_name "value" cg_value_type cg_module);
+    Llvm_scalar_opts.add_reassociation cg_fpmanager;
+    Llvm_scalar_opts.add_gvn cg_fpmanager;
+(*    Llvm_scalar_opts.add_instruction_combining cg_fpmanager;*)
+    Llvm_scalar_opts.add_cfg_simplification cg_fpmanager;
+    ignore (Llvm.PassManager.initialize cg_fpmanager);
+    { cg_context = cg_context;
+      cg_module = cg_module;
+      cg_builder = cg_builder;
+      cg_provider = cg_provider;
+      cg_fpmanager = cg_fpmanager;
+      cg_i1_type = cg_i1_type;
+      cg_int_type = cg_int_type;
+      cg_float_type = cg_float_type;
+      cg_floatbox_type = cg_floatbox_type;
+      cg_value_type = cg_value_type;
+      cg_alloc_float_func = cg_alloc_float_func;
+      cg_alloc_tuple_func = cg_alloc_tuple_func;
+      cg_compare_func = cg_compare_func }
+
+

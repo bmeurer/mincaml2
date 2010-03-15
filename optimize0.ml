@@ -19,7 +19,8 @@ let rec optimize (sigma:Purity.environment) (e:Syntax.t): Syntax.t =
     | Syntax.App(e, el) ->
         optimize_app sigma (optimize sigma e) (List.map (optimize sigma) el)
     | Syntax.Abstr(idl, e) ->
-        Syntax.Abstr(idl, optimize sigma e)
+        let sigma = List.fold_right (fun id sigma -> ((id, Purity.Arrow(Purity.Impure)) :: sigma)) idl sigma in
+          Syntax.Abstr(idl, optimize sigma e)
     | Syntax.Let(id, e1, e2) ->
         (match optimize sigma e1, optimize ((id, Purity.check sigma e1) :: sigma) e2 with
            | (Syntax.Int(_) as e1), e2
@@ -63,8 +64,8 @@ let rec optimize (sigma:Purity.environment) (e:Syntax.t): Syntax.t =
         let p1 = Purity.check sigma1 e1 in
         let sigma2 = (id, p1) :: sigma in
           (match optimize sigma1 e1, optimize sigma2 e2 with
-             | e1, e2 when not (List.mem id (Syntax.fv e2)) && p1 <> Purity.Impure ->
-                 e2
+             | e1, e2 when not (List.mem id (Syntax.fv e2)) && Purity.check sigma1 e1 <> Purity.Impure ->
+                 failwith (Syntax.to_string e2)
              | e1, e2 when not (List.mem id (Syntax.fv e1)) ->
                  optimize sigma (Syntax.Let(id, e1, e2))
              | e1, e2 ->
