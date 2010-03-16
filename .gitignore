@@ -1,6 +1,5 @@
 .depend
 *.cmi
 *.cmo
-mclexer.ml
-mcparser.ml
-mcparser.mli
+parser.ml
+parser.mli

@@ -1,17 +1,10 @@
 SOURCES=		\
-	builtin.ml	\
-	codegen.ml	\
-	listutils.ml	\
-	id.ml		\
-	mclexer.ml	\
-	mclexer.mli	\
-	mcparser.ml	\
-	mcparser.mli	\
-	optimize0.ml	\
-	purity.ml	\
-	syntax.ml	\
-	type.ml		\
-	typing.ml
+	astcommon.mli	\
+	location.ml	\
+	location.mli	\
+	parsedast.mli	\
+	parser.ml	\
+	parser.mli
 
 OBJECTS=$(patsubst %.ml,%.cmo,$(patsubst %.mli,%.cmi,$(SOURCES)))
 
@@ -35,7 +28,7 @@ clean::
 	rm -f *.cmi
 	rm -f *.cmo
 	rm -f .depend
-	rm -f mclexer.ml mcparser.ml mcparser.mli
+	rm -f parser.ml parser.mli
 
 .depend: Makefile $(SOURCES)
 	ocamldep.opt $(SOURCES) > $@
