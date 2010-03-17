@@ -2,6 +2,7 @@
   open Astcommon
   open Location
   open Parsedast
+  open Syntaxerr
 
   let mkexp d = {pexp_desc = d; pexp_loc = symbol_rloc ()}
   let mkpat d = {ppat_desc = d; ppat_loc = symbol_rloc ()}
@@ -27,6 +28,9 @@
 
   let reloc_exp e = {e with pexp_loc = symbol_rloc ()}
   let reloc_pat p = {p with ppat_loc = symbol_rloc ()}
+
+  let unclosed opening_name opening_num closing_name closing_num =
+    raise (Error(Unclosed(rhs_loc opening_num, opening_name, rhs_loc closing_num, closing_name)))
 %}
 
 /* Tokens */
@@ -238,10 +242,16 @@ simple_expr:
     { mkexp (Pexp_construct($1, None)) }
 | LPAREN seq_expr RPAREN
     { reloc_exp $2 }
+| LPAREN seq_expr error
+    { unclosed "(" 1 ")" 3 }
 | BEGIN seq_expr END
     { reloc_exp $2 }
+| BEGIN seq_expr error
+    { unclosed "begin" 1 "end" 3 }
 | LPAREN seq_expr COLON typ RPAREN
     { mkexp (Pexp_constraint($2, $4)) }
+| LPAREN seq_expr COLON typ error
+    { unclosed "(" 1 ")" 5 }
 | PREFIXOP simple_expr
     { mkexp (Pexp_apply(mkoperator $1 1, [$2])) }
 ;
@@ -331,8 +341,12 @@ simple_pattern:
     { mkpat (Ppat_construct($1, None)) }
 | LPAREN pattern RPAREN
     { reloc_pat $2 }
+| LPAREN pattern error
+    { unclosed "(" 1 ")" 3 }
 | LPAREN pattern COLON typ RPAREN
     { mkpat (Ppat_constraint($2, $4)) }
+| LPAREN pattern COLON typ error
+    { unclosed "(" 1 ")" 5 }
 ;
 
 

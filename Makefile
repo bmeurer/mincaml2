@@ -7,6 +7,7 @@ SOURCES=		\
 	parsedast.mli	\
 	parser.ml	\
 	parser.mli	\
+	syntaxerr.ml	\
 	syntaxerr.mli
 
 OBJECTS=$(patsubst %.ml,%.cmo,$(patsubst %.mli,%.cmi,$(SOURCES)))
