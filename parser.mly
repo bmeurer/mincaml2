@@ -17,6 +17,9 @@
     in match name, e.pexp_desc with
       | "-", Pexp_constant(Const_int(n)) -> mkexp (Pexp_constant(Const_int(-n)))
       | _, Pexp_constant(Const_float(f)) -> mkexp (Pexp_constant(Const_float(negate_float f)))
+      | "-", Pexp_constant(Const_int32(n)) -> mkexp (Pexp_constant(Const_int32(Int32.neg n)))
+      | "-", Pexp_constant(Const_int64(n)) -> mkexp (Pexp_constant(Const_int64(Int64.neg n)))
+      | "-", Pexp_constant(Const_nativeint(n)) -> mkexp (Pexp_constant(Const_nativeint(Nativeint.neg n)))
       | _, _ -> mkexp (Pexp_apply(mkoperator ("~" ^ name) 1, [e]))
 
   let ghexp d = {pexp_desc = d; pexp_loc = symbol_gloc ()}
@@ -55,6 +58,8 @@
 %token <string> INFIXOP3
 %token <string> INFIXOP4
 %token <int> INT
+%token <int32> INT32
+%token <int64> INT64
 %token LET
 %token <string> LOWERCASEIDENT
 %token LPAREN
@@ -62,6 +67,7 @@
 %token MINUS
 %token MINUSDOT
 %token MINUSGREATER
+%token <nativeint> NATIVEINT
 %token OF
 %token PLUS
 %token <string> PREFIXOP
@@ -108,7 +114,7 @@
 %nonassoc prec_unary_minus
 %nonassoc prec_constant_constructor
 %nonassoc prec_constructor_apply
-%nonassoc BEGIN CHAR FALSE FLOAT INT LOWERCASEIDENT LPAREN PREFIXOP STRING TRUE UPPERCASEIDENT
+%nonassoc BEGIN CHAR FALSE FLOAT INT INT32 INT64 LOWERCASEIDENT LPAREN NATIVEINT PREFIXOP STRING TRUE UPPERCASEIDENT
 
 /* Entry points */
 
@@ -442,18 +448,27 @@ simple_typ_or_tuple:
 /* Constants */
 
 constant:
-| INT    { Const_int($1) }
-| CHAR   { Const_char($1) }
-| FLOAT  { Const_float($1) }
-| STRING { Const_string($1) }
+| INT       { Const_int($1) }
+| CHAR      { Const_char($1) }
+| FLOAT     { Const_float($1) }
+| INT32     { Const_int32($1) }
+| INT64     { Const_int64($1) }
+| STRING    { Const_string($1) }
+| NATIVEINT { Const_nativeint($1) }
 ;
 
 signed_constant:
-| constant    { $1 }
-| MINUS INT   { Const_int(- $2) }
-| MINUS FLOAT { Const_float("-" ^ $2) }
-| PLUS INT    { Const_int($2) }
-| PLUS FLOAT  { Const_float($2) }
+| constant        { $1 }
+| MINUS INT       { Const_int(- $2) }
+| MINUS FLOAT     { Const_float("-" ^ $2) }
+| MINUS INT32     { Const_int32(Int32.neg $2) }
+| MINUS INT64     { Const_int64(Int64.neg $2) }
+| MINUS NATIVEINT { Const_nativeint(Nativeint.neg $2) }
+| PLUS INT        { Const_int($2) }
+| PLUS FLOAT      { Const_float($2) }
+| PLUS INT32      { Const_int32($2) }
+| PLUS INT64      { Const_int64($2) }
+| PLUS NATIVEINT  { Const_nativeint($2) }
 ;
 
 

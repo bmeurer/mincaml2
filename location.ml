@@ -1,3 +1,5 @@
+open Lexing
+
 type t =
     { loc_start: Lexing.position;
       loc_end:   Lexing.position;
@@ -23,3 +25,7 @@ let rhs_loc (n:int): t =
     loc_end = Parsing.rhs_end_pos n;
     loc_ghost = false }
 
+let curr (lexbuf:Lexing.lexbuf): t =
+  { loc_start = lexbuf.lex_start_p;
+    loc_end = lexbuf.lex_curr_p;
+    loc_ghost = false }

@@ -1,10 +1,13 @@
 SOURCES=		\
 	astcommon.mli	\
+	lexer.ml	\
+	lexer.mli	\
 	location.ml	\
 	location.mli	\
 	parsedast.mli	\
 	parser.ml	\
-	parser.mli
+	parser.mli	\
+	syntaxerr.mli
 
 OBJECTS=$(patsubst %.ml,%.cmo,$(patsubst %.mli,%.cmi,$(SOURCES)))
 
@@ -28,6 +31,7 @@ clean::
 	rm -f *.cmi
 	rm -f *.cmo
 	rm -f .depend
+	rm -f lexer.ml
 	rm -f parser.ml parser.mli
 
 .depend: Makefile $(SOURCES)
