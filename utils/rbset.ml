@@ -54,6 +54,10 @@ struct
       | Empty -> e
       | Black(l, x, r) | Red(l, x, r) -> enum l (More(x, r, e))
 
+  let blackify = function
+    | Red(l, x, r) -> Black(l, x, r), false
+    | s -> s, true
+
   let empty = Empty
 
   let is_empty = function
@@ -66,12 +70,9 @@ struct
     | Red(l, y, r)
     | Black(l, y, r) ->
         let c = Ord.compare x y in
-          if c < 0 then
-            mem x l
-          else if c > 0 then
-            mem x r
-          else
-            true
+          if c < 0 then mem x l
+          else if c > 0 then mem x r
+          else true
 
   let balance_left l x r =
     match l, x, r with
@@ -109,9 +110,7 @@ struct
               balance_right l y (add_aux r)
             else
               s
-    in match add_aux s with
-      | Red(l, y, r) -> Black(l, y, r)
-      | s -> s
+    in fst (blackify (add_aux s))
 
   let singleton x =
     Black(Empty, x, Empty)
@@ -152,10 +151,6 @@ struct
             let s, d = unbalanced_right s in s, y, d
           else
             s, y, false
-
-  let blackify = function
-    | Red(l, x, r) -> Black(l, x, r), false
-    | s -> s, true
 
   let remove x s =
     let rec remove_aux = function
@@ -246,9 +241,12 @@ struct
   let compare s1 s2 =
     let rec compare_aux e1 e2 =
       match e1, e2 with
-        | End, End -> 0
-        | End, _ -> -1
-        | _, End -> 1
+        | End, End ->
+            0
+        | End, _ ->
+            -1
+        | _, End ->
+            1
         | More(x1, r1, e1), More(x2, r2, e2) ->
             let c = Ord.compare x1 x2 in
               if c <> 0 then c else compare_aux (enum r1 e1) (enum r2 e2)
