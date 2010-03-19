@@ -1,26 +1,50 @@
-SOURCES=		\
-	astcommon.mli	\
-	lexer.ml	\
-	lexer.mli	\
-	location.ml	\
-	location.mli	\
-	parsedast.mli	\
-	parser.ml	\
-	parser.mli	\
-	syntaxerr.ml	\
-	syntaxerr.mli
+SOURCES=			\
+	ident.ml		\
+	ident.mli		\
+	parsing/astcommon.mli	\
+	parsing/lexer.ml	\
+	parsing/lexer.mli	\
+	parsing/location.ml	\
+	parsing/location.mli	\
+	parsing/parsedast.mli	\
+	parsing/parser.ml	\
+	parsing/parser.mli	\
+	parsing/syntaxerr.ml	\
+	parsing/syntaxerr.mli	\
+	predefined.ml		\
+	predefined.mli		\
+	typedast.mli		\
+	typeenv.mli		\
+	types.ml		\
+	types.mli		\
+	utils/rbmap.ml		\
+	utils/rbmap.mli		\
+	utils/rbset.ml		\
+	utils/rbset.mli
 
-OBJECTS=$(patsubst %.ml,%.cmo,$(patsubst %.mli,%.cmi,$(SOURCES)))
+OBJECTS=$(patsubst %.ml,%.cmo,$(patsubst %.mli,%.cmi,$(SOURCES))) \
+	$(patsubst %.ml,%.cmx,$(patsubst %.mli,%.cmi,$(SOURCES)))
+
+OCAMLCOMMONFLAGS=-I parsing -I utils
+OCAMLC=ocamlc.opt
+OCAMLCFLAGS=$(OCAMLCOMMONFLAGS) -g
+OCAMLDEP=ocamldep.opt
+OCAMLDEPFLAGS=$(OCAMLCOMMONFLAGS)
+OCAMLOPT=ocamlopt.opt
+OCAMLOPTFLAGS=$(OCAMLCFLAGS)
 
 all: $(OBJECTS)
 
 .SUFFIXES: .ml .mli .mll .mly .cmi .cmo .cmx
 
 .ml.cmo:
-	ocamlc.opt -g -c -o $@ $<
+	$(OCAMLC) $(OCAMLCFLAGS) -c -o $@ $<
+
+.ml.cmx:
+	$(OCAMLOPT) $(OCAMLOPTFLAGS) -c -o $@ $<
 
 .mli.cmi:
-	ocamlc.opt -c -o $@ $<
+	$(OCAMLC) $(OCAMLCFLAGS) -c -o $@ $<
 
 .mll.ml:
 	ocamllex -o $@ $<
@@ -29,14 +53,12 @@ all: $(OBJECTS)
 	ocamlyacc $<
 
 clean::
-	rm -f *.cmi
-	rm -f *.cmo
+	rm -f $(OBJECTS)
 	rm -f .depend
-	rm -f lexer.ml
-	rm -f parser.ml parser.mli
+	rm -f parsing/lexer.ml parsing/parser.ml parsing/parser.mli
 
 .depend: Makefile $(SOURCES)
-	ocamldep.opt $(SOURCES) > $@
+	$(OCAMLDEP) $(OCAMLDEPFLAGS) $(SOURCES) > $@
 
 include .depend
 

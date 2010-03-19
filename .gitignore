@@ -1,6 +1,9 @@
 .depend
-*.cmi
-*.cmo
-lexer.ml
-parser.ml
-parser.mli
+.*.swp
+*.cm[iox]
+*.o
+*/*.cm[iox]
+*/*.o
+parsing/lexer.ml
+parsing/parser.ml
+parsing/parser.mli

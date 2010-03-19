@@ -1,118 +1,187 @@
-open Syntax
+open Astcommon
+open Parsedast
+open Typedast
+open Types
 
-exception Error of Syntax.t * Type.t * Type.t
-exception Unify_error of Type.t * Type.t
-exception Unknown_identifier of string
 
-let rec occur (alpha:Type.variable) (tau:Type.t): bool =
+type error =
+  | Type_arity_mismatch of string * int * int * Location.t
+  | Unbound_type_constructor of string * Location.t
+  | Unbound_type_variable of string * Location.t
+exception Error of error
+
+
+(*******************)
+(*** Unification ***)
+(*******************)
+
+exception Unify_error of type_expr * type_expr
+
+let rec occur (alpha:type_variable) (tau:type_expr): bool =
   match tau with
-    | Type.Arrow(taul, tau) -> List.exists (occur alpha) taul || occur alpha tau
-    | Type.Tuple(taul)
-    | Type.Constr(taul, _) -> List.exists (occur alpha) taul
-    | Type.Variable(alpha') when alpha == alpha' -> true
-    | Type.Variable({ contents = Some(tau) }) -> occur alpha tau
-    | Type.Variable({ contents = None }) -> false
-    | Type.Poly(_) -> raise (Invalid_argument("Typing.occur"))
+    | Tvar(alpha') when alpha == alpha' -> true
+    | Tvar({ contents = Some(tau') }) -> occur alpha tau'
+    | Tarrow(tau, tau') -> occur alpha tau || occur alpha tau'
+    | Ttuple(taul) 
+    | Tconstruct(_, taul) -> List.exists (occur alpha) taul
+    | Tpoly(alpha', tau) when alpha <> alpha' -> occur alpha tau
+    | _ -> false
 
-let rec unify (tau1:Type.t) (tau2:Type.t): unit =
-  try 
-    match tau1, tau2 with
-      | Type.Arrow(tau1l, tau1), Type.Arrow(tau2l, tau2) ->
-          List.iter2 unify tau1l tau2l;
-          unify tau1 tau2
-      | Type.Tuple(tau1l), Type.Tuple(tau2l) ->
-          List.iter2 unify tau1l tau2l
-      | Type.Constr(tau1l, name1), Type.Constr(tau2l, name2) when name1 = name2 ->
-          List.iter2 unify tau1l tau2l
-      | Type.Poly(_), _
-      | _, Type.Poly(_) ->
-          raise (Invalid_argument("Typing.unify"))
-      | Type.Variable(alpha1), Type.Variable(alpha2) when alpha1 == alpha2 ->
-          ()
-      | Type.Variable({ contents = Some(tau1) }), tau2
-      | tau1, Type.Variable({ contents = Some(tau2) }) ->
-          unify tau1 tau2
-      | Type.Variable({ contents = None } as alpha), tau
-      | tau, Type.Variable({ contents = None } as alpha) when not (occur alpha tau) ->
-          alpha := Some(tau)
-      | tau1, tau2 -> raise (Unify_error(tau1, tau2))
-  with
-    | Invalid_argument("List.iter2") -> raise (Unify_error(tau1, tau2))
-
-let rec is_nonexpansive (e:t): bool =
-  match e with
-    | Int(_)
-    | Char(_)
-    | Float(_)
-    | String(_)
-    | Ident(_)
-    | Abstr(_) -> true
-    | Tuple(el) -> List.for_all is_nonexpansive el
-    | Sequence(_, e2) -> is_nonexpansive e2
-    | App(_) -> false
-    | If(_, e1, e2) 
-    | Let(_, e1, e2)
-    | LetTuple(_, e1, e2)
-    | LetRec(_, e1, e2) -> is_nonexpansive e1 && is_nonexpansive e2
-
-let generalize (gamma:Type.environment) (e:t) (tau:Type.t): Type.t =
-  if is_nonexpansive e
-  then Type.generalize gamma tau
-  else tau
-
-let rec infer (gamma:Type.environment) (e:t): Type.t =
-  let tau = match e with
-    | Int(_) ->
-        Type.tint
-    | Char(_) ->
-        Type.tchar
-    | Float(_) ->
-        Type.tfloat
-    | String(_) ->
-        Type.tstring
-    | Ident(id) ->
-        (try
-           Type.instantiate (List.assoc id gamma)
-         with
-           | Not_found -> raise (Unknown_identifier(id)))
-    | If(e0, e1, e2) ->
-        let tau = Type.newvar () in
-          solve gamma e0 Type.tbool;
-          solve gamma e1 tau;
-          solve gamma e2 tau;
-          tau
-    | Tuple(el) ->
-        Type.Tuple(List.map (fun e -> let tau = Type.newvar () in solve gamma e tau; tau) el)
-    | Sequence(e1, e2) ->
-        solve gamma e1 Type.tunit;
-        infer gamma e2
-    | App(e, el) ->
-        let taul = List.map (infer gamma) el in
-        let tau = Type.newvar () in
-          solve gamma e (Type.Arrow(taul, tau));
-          tau
-    | Abstr(idl, e) ->
-        let taul = List.map (fun _ -> Type.newvar ()) idl in
-        let tau = Type.newvar () in
-        let gamma = List.fold_right2 (fun id tau gamma -> (id, tau) :: gamma) idl taul gamma in
-          solve gamma e tau;
-          Type.Arrow(taul, tau)
-    | Let(id, e1, e2) ->
-        let tau = infer gamma e1 in
-          infer ((id, generalize gamma e1 tau) :: gamma) e2
-    | LetTuple(idl, e1, e2) ->
-        let taul = List.map (fun _ -> Type.newvar ()) idl in
-          solve gamma e1 (Type.Tuple(taul));
-          let taul = List.map (generalize gamma e1) taul in
-            infer (List.rev_append (List.combine idl taul) gamma) e2
-    | LetRec(id, e1, e2) ->
-        let tau = Type.newvar () in
-          solve ((id, tau) :: gamma) e1 tau;
-          infer ((id, generalize gamma e1 tau) :: gamma) e2
-  in Type.normalize tau
-and solve (gamma:Type.environment) (e:t) (tau:Type.t) =
+let rec unify (tau1:type_expr) (tau2:type_expr): unit =
   try
-    unify (infer gamma e) tau
+    match tau1, tau2 with
+      | Tarrow(tau1, tau1'), Tarrow(tau2, tau2') ->
+          unify tau1 tau2;
+          unify tau1' tau2'
+      | Ttuple(tau1l), Ttuple(tau2l) ->
+          List.iter2 unify tau1l tau2l
+      | Tconstruct(id1, tau1l), Tconstruct(id2, tau2l) when Ident.same id1 id2 ->
+          List.iter2 unify tau1l tau2l
+      | Tpoly(_), _
+      | _, Tpoly(_) ->
+          invalid_arg "Typing.unify"
+      | Tvar(alpha1), Tvar(alpha2) when alpha1 == alpha2 ->
+          ()
+      | Tvar({ contents = Some(tau1) }), tau2
+      | tau1, Tvar({ contents = Some(tau2) }) ->
+          unify tau1 tau2
+      | Tvar({ contents = None } as alpha), tau 
+      | tau, Tvar({ contents = None } as alpha) when not (occur alpha tau) ->
+          alpha := Some(tau)
+      | tau1, tau2 ->
+          raise (Unify_error(tau1, tau2))
   with
-    | Unify_error(tau1, tau2) -> raise (Error(e, Type.normalize tau1, Type.normalize tau2))
+    | Invalid_argument("List.iter2") ->
+        raise (Unify_error(tau1, tau2))
 
+
+(*** TODO ***)
+
+(* replace all unbound occurrences of alpha in tau with a fresh variable *)
+let fresh (alpha:type_variable) (tau:type_expr): type_expr =
+  let oalpha = alpha in
+  let nalpha = ref None in
+  let rec fresh_aux (tau:type_expr): type_expr =
+    match tau with
+      | Tvar(alpha) when alpha == oalpha -> Tvar(nalpha)
+      | Tvar({ contents = Some(tau) }) -> fresh_aux tau
+      | Tarrow(tau, tau') -> Tarrow(fresh_aux tau, fresh_aux tau')
+      | Ttuple(taul) -> Ttuple(List.map fresh_aux taul)
+      | Tconstruct(id, taul) -> Tconstruct(id, List.map fresh_aux taul)
+      | Tpoly(alpha, tau) when alpha != oalpha -> Tpoly(alpha, fresh_aux tau)
+      | tau -> tau
+  in fresh_aux tau
+
+let rec instantiate (tau:type_expr): type_expr =
+  match tau with
+    | Tpoly(alpha, tau) -> fresh alpha (instantiate tau)
+    | tau -> tau
+
+type policy =
+  | Open   (* add new type variables as they appear *)
+  | Closed (* fail on unknown type variable *)
+
+let rec translate_type (policy:policy) alphas (gamma:Typeenv.t) (ptau:typ): type_expr =
+  match ptau.ptyp_desc with
+    | Ptyp_any ->
+        if policy = Open then
+          Tvar(new_type_variable ())
+        else
+          raise (Error(Unbound_type_variable("_", ptau.ptyp_loc)))
+    | Ptyp_var(name) ->
+        Tvar(try
+               List.assoc name !alphas
+             with
+               | Not_found when policy = Open ->
+                   let alpha = new_type_variable () in
+                     alphas := (name, alpha) :: !alphas;
+                     alpha
+               | Not_found ->
+                   raise (Error(Unbound_type_variable(name, ptau.ptyp_loc))))
+    | Ptyp_arrow(ptau1, ptau2) ->
+        Tarrow(translate_type policy alphas gamma ptau1, translate_type policy alphas gamma ptau2)
+    | Ptyp_tuple(ptaul) ->
+        Ttuple(List.map (translate_type policy alphas gamma) ptaul)
+    | Ptyp_construct(name, ptaul) ->
+        let taul = List.map (translate_type policy alphas gamma) ptaul in
+        let taul_length = List.length taul in
+        let (id, decl) = (try
+                            Typeenv.lookup_type name gamma
+                          with
+                            | Not_found ->
+                                raise (Error(Unbound_type_constructor(name, ptau.ptyp_loc)))) in
+          if taul_length <> decl.type_arity then
+            raise (Error(Type_arity_mismatch(name, decl.type_arity, taul_length, ptau.ptyp_loc)));
+          Tconstruct(id, taul)
+
+
+(**********************)
+(*** Type inference ***)
+(**********************)
+
+let type_constant (c:constant): type_expr =
+  instantiate (match c with
+                 | Const_int(_) -> Predefined.type_int
+                 | Const_char(_) -> Predefined.type_char
+                 | Const_float(_) -> Predefined.type_float
+                 | Const_int32(_) -> Predefined.type_int32
+                 | Const_int64(_) -> Predefined.type_int64
+                 | Const_string(_) -> Predefined.type_string
+                 | Const_nativeint(_) -> Predefined.type_nativeint)
+
+let rec type_exp (gamma:Typeenv.t) (pe:Parsedast.expression): Typedast.expression =
+  match pe.pexp_desc with
+    | Pexp_constant(c) ->
+        { exp_desc = Texp_constant(c);
+          exp_loc = pe.pexp_loc;
+          exp_tau = type_constant c;
+          exp_gamma = gamma }
+    (* TODO *)
+    | Pexp_tuple(pel) ->
+        let el = List.map (type_exp gamma) pel in
+          { exp_desc = Texp_tuple(el);
+            exp_loc = pe.pexp_loc;
+            exp_tau = Ttuple(List.map (fun e -> e.exp_tau) el);
+            exp_gamma = gamma }
+    (* TODO *)
+    | Pexp_ifthenelse(pe0, pe1, pe2) ->
+        let e0 = solve_exp gamma pe0 (instantiate Predefined.type_bool) in
+          begin match pe2 with
+            | None ->
+                let e1 = solve_exp gamma pe1 (instantiate Predefined.type_unit) in
+                  { exp_desc = Texp_ifthenelse(e0, e1, None);
+                    exp_loc = pe.pexp_loc;
+                    exp_tau = e1.exp_tau;
+                    exp_gamma = gamma }
+            | Some(pe2) ->
+                let e1 = type_exp gamma pe1 in
+                let e2 = solve_exp gamma pe2 e1.exp_tau in
+                  { exp_desc = Texp_ifthenelse(e0, e1, Some(e2));
+                    exp_loc = pe.pexp_loc;
+                    exp_tau = e1.exp_tau;
+                    exp_gamma = gamma }
+          end
+    | Pexp_sequence(pe1, pe2) ->
+        let e1 = solve_exp gamma pe1 (instantiate Predefined.type_unit) in
+        let e2 = type_exp gamma pe2 in
+          { exp_desc = Texp_sequence(e1, e2);
+            exp_loc = pe.pexp_loc;
+            exp_tau = e2.exp_tau;
+            exp_gamma = gamma }
+    (* TODO *)
+    | Pexp_when(pe1, pe2) ->
+        let e1 = solve_exp gamma pe1 (instantiate Predefined.type_bool) in
+        let e2 = type_exp gamma pe2 in
+          { exp_desc = Texp_when(e1, e2);
+            exp_loc = pe.pexp_loc;
+            exp_tau = e2.exp_tau;
+            exp_gamma = gamma }
+
+and solve_exp (gamma:Typeenv.t) (pe:Parsedast.expression) (tau:type_expr): Typedast.expression =
+  try
+    let e = type_exp gamma pe in
+      unify e.exp_tau tau;
+      e
+  with
+      (* TODO *)
+    | Unify_error(_) as exn -> raise exn

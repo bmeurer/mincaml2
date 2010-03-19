@@ -3,6 +3,7 @@ open Astcommon
 type typ =
     { ptyp_desc: typ_desc;
       ptyp_loc:  Location.t }
+
 and typ_desc =
   | Ptyp_any
   | Ptyp_var of string
@@ -13,6 +14,7 @@ and typ_desc =
 type pattern =
     { ppat_desc: pattern_desc;
       ppat_loc:  Location.t }
+
 and pattern_desc =
   | Ppat_any
   | Ppat_var of string
@@ -26,6 +28,7 @@ and pattern_desc =
 type expression =
     { pexp_desc: expression_desc;
       pexp_loc:  Location.t }
+
 and expression_desc =
   | Pexp_constant of constant
   | Pexp_ident of string
@@ -46,6 +49,7 @@ type type_declaration =
       ptype_desc:   type_declaration_desc;
       ptype_typ:    typ option;
       ptype_loc:    Location.t }
+
 and type_declaration_desc =
   | Ptype_abstract
   | Ptype_variant of (string * typ list * Location.t) list
@@ -56,10 +60,12 @@ type exn_declaration =
 type structure_item =
     { pstr_desc: structure_item_desc;
       pstr_loc:  Location.t }
+
 and structure_item_desc =
   | Pstr_exp of expression
   | Pstr_let of rec_flag * (pattern * expression) list
   | Pstr_typ of (string * type_declaration) list
   | Pstr_exn of string * exn_declaration
+
 and structure =
     structure_item list
