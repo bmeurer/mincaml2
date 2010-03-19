@@ -1,6 +1,4 @@
 SOURCES=			\
-	ident.ml		\
-	ident.mli		\
 	parsing/astcommon.mli	\
 	parsing/lexer.ml	\
 	parsing/lexer.mli	\
@@ -11,12 +9,14 @@ SOURCES=			\
 	parsing/parser.mli	\
 	parsing/syntaxerr.ml	\
 	parsing/syntaxerr.mli	\
-	predefined.ml		\
-	predefined.mli		\
-	typedast.mli		\
-	typeenv.mli		\
-	types.ml		\
-	types.mli		\
+	typing/ident.ml		\
+	typing/ident.mli	\
+	typing/predefined.ml	\
+	typing/predefined.mli	\
+	typing/typedast.mli	\
+	typing/typeenv.mli	\
+	typing/types.ml		\
+	typing/types.mli	\
 	utils/rbmap.ml		\
 	utils/rbmap.mli		\
 	utils/rbset.ml		\
@@ -25,7 +25,7 @@ SOURCES=			\
 OBJECTS=$(patsubst %.ml,%.cmo,$(patsubst %.mli,%.cmi,$(SOURCES))) \
 	$(patsubst %.ml,%.cmx,$(patsubst %.mli,%.cmi,$(SOURCES)))
 
-OCAMLCOMMONFLAGS=-I parsing -I utils
+OCAMLCOMMONFLAGS=-I parsing -I typing -I utils
 OCAMLC=ocamlc.opt
 OCAMLCFLAGS=$(OCAMLCOMMONFLAGS) -g
 OCAMLDEP=ocamldep.opt
