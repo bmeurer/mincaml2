@@ -221,7 +221,14 @@ and type_exp gamma pexp =
             exp_tau = new_typ (Tarrow(tau, tau'));
             exp_gamma = gamma }
     | Pexp_apply(pexp', pexpl) ->
-        assert false
+        let tau = new_var () in
+        let expl = List.map (type_exp gamma) pexpl in
+        let tau' = List.fold_right (fun exp tau -> new_typ (Tarrow(exp.exp_tau, tau))) expl tau in
+        let exp = solve_exp gamma pexp' tau' in
+          { exp_desc = Texp_apply(exp, expl);
+            exp_loc = pexp.pexp_loc;
+            exp_tau = tau;
+            exp_gamma = gamma }
     | Pexp_match(pexp', pcases) ->
         let tau = new_var () in
         let exp = type_exp gamma pexp' in
