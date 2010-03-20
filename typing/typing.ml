@@ -218,13 +218,7 @@ let rec type_pat sigma gamma ppat rho =
           pat_tau = type_constant c;
           pat_gamma = gamma }, rho
     | Ppat_tuple(ppatl) ->
-        let patl, rho = (List.fold_left
-                           (fun (patl, rho) ppat ->
-                              let pat, rho = type_pat sigma gamma ppat rho in
-                                pat :: patl, rho)
-                           ([], rho)
-                           ppatl) in
-        let patl = List.rev patl in
+        let patl, rho = type_pat_list sigma gamma ppatl rho in
           { pat_desc = Tpat_tuple(patl);
             pat_loc = ppat.ppat_loc;
             pat_tau = Ttuple(List.map (fun pat -> pat.pat_tau) patl);
@@ -243,6 +237,15 @@ let rec type_pat sigma gamma ppat rho =
         let tau = translate_type Open sigma gamma ptau in
           solve_pat sigma gamma ppat tau rho
 
+and type_pat_list sigma gamma ppatl rho =
+  let patl, rho = (List.fold_left
+                     (fun (patl, rho) ppat ->
+                        let pat, rho = type_pat sigma gamma ppat rho in
+                          pat :: patl, rho)
+                     ([], rho)
+                     ppatl) in
+    List.rev patl, rho
+
 and solve_pat sigma gamma ppat tau rho =
   try
     let pat, rho = type_pat sigma gamma ppat rho in
@@ -252,100 +255,107 @@ and solve_pat sigma gamma ppat tau rho =
     | Unify_error(taupl) ->
         raise (Error(Pattern_type_mismatch(taupl, ppat.ppat_loc)))
 
-and type_exp sigma gamma pe =
-  match pe.pexp_desc with
+and type_exp sigma gamma pexp =
+  match pexp.pexp_desc with
     | Pexp_constant(c) ->
         { exp_desc = Texp_constant(c);
-          exp_loc = pe.pexp_loc;
+          exp_loc = pexp.pexp_loc;
           exp_tau = type_constant c;
           exp_gamma = gamma }
     | Pexp_ident(name) ->
         let id, value = Typeenv.find_value name gamma in
           { exp_desc = Texp_ident(id, value);
-            exp_loc = pe.pexp_loc;
+            exp_loc = pexp.pexp_loc;
             exp_tau = instantiate value.val_tau;
             exp_gamma = gamma }
-    | Pexp_let(rec_flag, pcases, pe') ->
+    | Pexp_let(rec_flag, pcases, pexp') ->
+        (*
+        let patl, rho = type_pat_list sigma gamma (List.map fst pcases) PatternEnv.empty in
+        let gamma1 = (match rec_flag with
+                        | Recursive -> PatternEnv.merge gamma rho
+                        | NonRecursive -> gamma) in
+        let expl = List.map (fun (_, pexp) -> type_exp sigma gamma1 pexp) pcases in
+        *)
         assert false
     | Pexp_function(pcases) ->
         let tau = Tvar(new_type_variable ()) in
         let tau' = Tvar(new_type_variable ()) in
         let cases, partial = solve_cases sigma gamma pcases tau tau' in
           { exp_desc = Texp_function(cases, partial);
-            exp_loc = pe.pexp_loc;
+            exp_loc = pexp.pexp_loc;
             exp_tau = Tarrow(tau, tau');
             exp_gamma = gamma }
-    | Pexp_apply(pe', pel) ->
+    | Pexp_apply(pexp', pexpl) ->
         assert false
-    | Pexp_match(pe', pcases) ->
-        let e = type_exp sigma gamma pe' in
+    | Pexp_match(pexp', pcases) ->
+        let exp = type_exp sigma gamma pexp' in
         let tau = Tvar(new_type_variable ()) in
-        let cases, partial = solve_cases sigma gamma pcases e.exp_tau tau in
-          { exp_desc = Texp_match(e, cases, partial);
-            exp_loc = pe.pexp_loc;
+        let cases, partial = solve_cases sigma gamma pcases exp.exp_tau tau in
+          { exp_desc = Texp_match(exp, cases, partial);
+            exp_loc = pexp.pexp_loc;
             exp_tau = tau;
             exp_gamma = gamma }
-    | Pexp_try(pe', pcases) ->
+    | Pexp_try(pexp', pcases) ->
         assert false
-    | Pexp_tuple(pel) ->
-        let el = List.map (type_exp sigma gamma) pel in
-          { exp_desc = Texp_tuple(el);
-            exp_loc = pe.pexp_loc;
-            exp_tau = Ttuple(List.map (fun e -> e.exp_tau) el);
+    | Pexp_tuple(pexpl) ->
+        let expl = List.map (type_exp sigma gamma) pexpl in
+          { exp_desc = Texp_tuple(expl);
+            exp_loc = pexp.pexp_loc;
+            exp_tau = Ttuple(List.map (fun exp -> exp.exp_tau) expl);
             exp_gamma = gamma }
-    | Pexp_construct(name, pe') ->
+    | Pexp_construct(name, pexp') ->
         assert false
-    | Pexp_ifthenelse(pe0, pe1, pe2) ->
-        let e0 = solve_exp sigma gamma pe0 Typeenv.type_bool in
-          begin match pe2 with
+    | Pexp_ifthenelse(pexp0, pexp1, pexp2) ->
+        let exp0 = solve_exp sigma gamma pexp0 Typeenv.type_bool in
+          begin match pexp2 with
             | None ->
-                let e1 = solve_exp sigma gamma pe1 Typeenv.type_unit in
-                  { exp_desc = Texp_ifthenelse(e0, e1, None);
-                    exp_loc = pe.pexp_loc;
-                    exp_tau = e1.exp_tau;
+                let exp1 = solve_exp sigma gamma pexp1 Typeenv.type_unit in
+                  { exp_desc = Texp_ifthenelse(exp0, exp1, None);
+                    exp_loc = pexp.pexp_loc;
+                    exp_tau = exp1.exp_tau;
                     exp_gamma = gamma }
-            | Some(pe2) ->
-                let e1 = type_exp sigma gamma pe1 in
-                let e2 = solve_exp sigma gamma pe2 e1.exp_tau in
-                  { exp_desc = Texp_ifthenelse(e0, e1, Some(e2));
-                    exp_loc = pe.pexp_loc;
-                    exp_tau = e1.exp_tau;
+            | Some(pexp2) ->
+                let exp1 = type_exp sigma gamma pexp1 in
+                let exp2 = solve_exp sigma gamma pexp2 exp1.exp_tau in
+                  { exp_desc = Texp_ifthenelse(exp0, exp1, Some(exp2));
+                    exp_loc = pexp.pexp_loc;
+                    exp_tau = exp1.exp_tau;
                     exp_gamma = gamma }
           end
-    | Pexp_sequence(pe1, pe2) ->
-        let e1 = solve_exp sigma gamma pe1 Typeenv.type_unit in
-        let e2 = type_exp sigma gamma pe2 in
-          { exp_desc = Texp_sequence(e1, e2);
-            exp_loc = pe.pexp_loc;
-            exp_tau = e2.exp_tau;
+    | Pexp_sequence(pexp1, pexp2) ->
+        let exp1 = solve_exp sigma gamma pexp1 Typeenv.type_unit in
+        let exp2 = type_exp sigma gamma pexp2 in
+          { exp_desc = Texp_sequence(exp1, exp2);
+            exp_loc = pexp.pexp_loc;
+            exp_tau = exp2.exp_tau;
             exp_gamma = gamma }
-    | Pexp_constraint(pe, ptau) ->
+    | Pexp_constraint(pexp, ptau) ->
         let tau = translate_type Open sigma gamma ptau in
-          solve_exp sigma gamma pe tau
-    | Pexp_when(pe1, pe2) ->
-        let e1 = solve_exp sigma gamma pe1 Typeenv.type_bool in
-        let e2 = type_exp sigma gamma pe2 in
-          { exp_desc = Texp_when(e1, e2);
-            exp_loc = pe.pexp_loc;
-            exp_tau = e2.exp_tau;
+          solve_exp sigma gamma pexp tau
+    | Pexp_when(pexp1, pexp2) ->
+        let exp1 = solve_exp sigma gamma pexp1 Typeenv.type_bool in
+        let exp2 = type_exp sigma gamma pexp2 in
+          { exp_desc = Texp_when(exp1, exp2);
+            exp_loc = pexp.pexp_loc;
+            exp_tau = exp2.exp_tau;
             exp_gamma = gamma }
 
-and solve_exp sigma gamma pe tau =
+and solve_exp sigma gamma pexp tau =
   try
-    let e = type_exp sigma gamma pe in
-      unify e.exp_tau tau;
-      e
+    let exp = type_exp sigma gamma pexp in
+      unify exp.exp_tau tau;
+      exp
   with
     | Unify_error(taupl) ->
-        raise (Error(Expression_type_mismatch(taupl, pe.pexp_loc)))
+        raise (Error(Expression_type_mismatch(taupl, pexp.pexp_loc)))
 
 and solve_cases sigma gamma pcases tau tau' =
   let cases = (List.map
-                 (fun (ppat, pe) ->
+                 (fun (ppat, pexp) ->
                     let pat, rho = solve_pat sigma gamma ppat tau PatternEnv.empty in
                     let gamma' = PatternEnv.merge gamma rho in
-                    let e = solve_exp sigma gamma' pe tau' in
-                      pat, e)
+                    let exp = solve_exp sigma gamma' pexp tau' in
+                      pat, exp)
                  pcases) in
     (* TODO - check if pattern is full *)
     cases, Partial
