@@ -18,6 +18,9 @@ and type_declaration_desc =
   | Type_abstr
   | Type_variant of (string * typ list) list
 
+and exn_declaration =
+    typ list
+
 and constructor_description =
     { cstr_type:  typ;
       cstr_args:  typ list;

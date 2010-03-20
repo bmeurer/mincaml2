@@ -43,7 +43,7 @@ and expression_desc =
   | Pexp_constraint of expression * typ
   | Pexp_when of expression * expression
 
-type type_declaration =
+and type_declaration =
     { ptype_params: string list;
       ptype_desc:   type_declaration_desc;
       ptype_typ:    typ option;
@@ -53,10 +53,10 @@ and type_declaration_desc =
   | Ptype_abstract
   | Ptype_variant of (string * typ list * Location.t) list
 
-type exn_declaration =
+and exn_declaration =
     typ list
 
-type structure_item =
+and structure_item =
     { pstr_desc: structure_item_desc;
       pstr_loc:  Location.t }
 

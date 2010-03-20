@@ -40,6 +40,20 @@ and expression_desc =
   | Texp_sequence of expression * expression
   | Texp_when of expression * expression
 
+and structure_item =
+    { str_desc:  structure_item_desc;
+      str_loc:   Location.t;
+      str_gamma: Typeenv.t }
+
+and structure_item_desc =
+  | Tstr_exp of expression
+  | Tstr_let of rec_flag * (pattern * expression) list
+  | Tstr_typ of (Ident.t * type_declaration) list
+  | Tstr_exn of Ident.t * exn_declaration
+
+and structure =
+    structure_item list
+
 
 let rec pattern_map_idents f pat =
   match pat.pat_desc with

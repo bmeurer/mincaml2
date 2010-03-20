@@ -37,6 +37,9 @@ let rec is_value exp =
 
 let translated_type_vars = ref ([] : (string * typ) list)
 
+let clear_translated_type_vars () =
+  translated_type_vars := []
+
 type policy =
   | Strict     (* fail on unknown type variable *)
   | Extensible (* add new type variables as they appear *)
@@ -341,3 +344,31 @@ and type_let gamma rec_flag pcases =
     List.iter (fun (pat, exp) -> if not (is_value exp) then nongeneralize pat.pat_tau) cases;
     List.iter (fun (pat, exp) -> generalize pat.pat_tau) cases;
     gamma', cases
+
+and type_structure_item gamma pstr =
+  clear_translated_type_vars ();
+  match pstr.pstr_desc with
+    | Pstr_exp(pexp) ->
+        let exp = type_exp gamma pexp in
+          { str_desc = Tstr_exp(exp);
+            str_loc = pstr.pstr_loc;
+            str_gamma = gamma }, gamma
+    | Pstr_let(rec_flag, pcases) ->
+        let gamma', cases = type_let gamma rec_flag pcases in
+          { str_desc = Tstr_let(rec_flag, cases);
+            str_loc = pstr.pstr_loc;
+            str_gamma = gamma }, gamma'
+    | Pstr_typ(_) ->
+        (* TODO *)
+        assert false
+    | Pstr_exn(_) ->
+        (* TODO *)
+        assert false
+
+and type_structure gamma pstrl =
+  match pstrl with
+    | [] ->
+        []
+    | pstr :: pstrl ->
+        let str, gamma = type_structure_item gamma pstr in
+          str :: type_structure gamma pstrl
