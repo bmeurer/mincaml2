@@ -16,6 +16,21 @@ type error =
 exception Error of error
 
 
+(*********************)
+(*** Miscellaneous ***)
+(*********************)
+
+(* StandardML criterion for let polymorphism *)
+let rec is_value exp =
+  match exp.exp_desc with
+    | Texp_constant(_)
+    | Texp_ident(_)
+    | Texp_function(_) -> true
+    | Texp_tuple(expl) -> List.for_all is_value expl
+    | Texp_when(_, exp) -> is_value exp
+    | _ -> false
+
+
 (********************************)
 (*** Translating parsed types ***)
 (********************************)
@@ -204,14 +219,12 @@ and type_exp gamma pexp =
             exp_tau = instantiate value.val_tau;
             exp_gamma = gamma }
     | Pexp_let(rec_flag, pcases, pexp') ->
-        (*
-        let patl, rho = type_pat_list sigma gamma (List.map fst pcases) PatternEnv.empty in
-        let gamma1 = (match rec_flag with
-                        | Recursive -> PatternEnv.merge gamma rho
-                        | NonRecursive -> gamma) in
-        let expl = List.map (fun (_, pexp) -> type_exp sigma gamma1 pexp) pcases in
-        *)
-        assert false
+        let gamma', cases = type_let gamma rec_flag pcases in
+        let exp = type_exp gamma' pexp' in
+          { exp_desc = Texp_let(rec_flag, cases, exp);
+            exp_loc = pexp.pexp_loc;
+            exp_tau = exp.exp_tau;
+            exp_gamma = gamma }
     | Pexp_function(pcases) ->
         let tau = new_var () in
         let tau' = new_var () in
@@ -305,3 +318,26 @@ and solve_cases gamma pcases tau tau' =
                  pcases) in
     (* TODO - check if pattern is full *)
     cases, Partial
+
+and type_let gamma rec_flag pcases =
+  let gamma', cases =
+    (try
+       increase_typ_level ();
+       let patl, rho = type_pat_list gamma (List.map fst pcases) PatternEnv.empty in
+       let gamma' = PatternEnv.merge gamma rho in
+       let gamma1 = (match rec_flag with
+                       | Recursive -> gamma'
+                       | NonRecursive -> gamma) in
+       let cases = (List.map2
+                      (fun pat (_, pexp) -> pat, solve_exp gamma1 pexp pat.pat_tau)
+                      patl
+                      pcases) in
+         decrease_typ_level ();
+         gamma', cases
+     with
+       | exn ->
+           decrease_typ_level ();
+           raise exn) in
+    List.iter (fun (pat, exp) -> if not (is_value exp) then nongeneralize pat.pat_tau) cases;
+    List.iter (fun (pat, exp) -> generalize pat.pat_tau) cases;
+    gamma', cases

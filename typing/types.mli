@@ -36,6 +36,10 @@ val new_generic_typ: typ_desc -> typ
 val new_var: unit -> typ
 val new_global_var: unit -> typ
 
+val increase_typ_level: unit -> unit
+val decrease_typ_level: unit -> unit
+
+val nongeneralize: typ -> unit
 val generalize: typ -> unit
 val instantiate: typ -> typ
 

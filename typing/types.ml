@@ -47,6 +47,9 @@ let new_global_typ desc = new_typ_with_level desc global_level
 let new_var () = new_typ (Tvar(ref None))
 let new_global_var () = new_global_typ (Tvar(ref None))
 
+let increase_typ_level () = incr current_level
+let decrease_typ_level () = decr current_level
+
 
 (************)
 (*** Misc ***)
