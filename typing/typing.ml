@@ -231,7 +231,12 @@ and type_exp gamma pexp =
             exp_tau = tau;
             exp_gamma = gamma }
     | Pexp_try(pexp', pcases) ->
-        assert false
+        let exp = type_exp gamma pexp' in
+        let cases, _ = solve_cases gamma pcases (instantiate Typeenv.type_exn) exp.exp_tau in
+          { exp_desc = Texp_try(exp, cases);
+            exp_loc = pexp.pexp_loc;
+            exp_tau = exp.exp_tau;
+            exp_gamma = gamma }
     | Pexp_tuple(pexpl) ->
         let expl = List.map (type_exp gamma) pexpl in
           { exp_desc = Texp_tuple(expl);
