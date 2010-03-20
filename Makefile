@@ -13,6 +13,7 @@ SOURCES=			\
 	typing/ident.mli	\
 	typing/predefined.ml	\
 	typing/predefined.mli	\
+	typing/typedast.ml	\
 	typing/typedast.mli	\
 	typing/typeenv.ml	\
 	typing/typeenv.mli	\

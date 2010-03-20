@@ -18,10 +18,17 @@ and type_declaration_desc =
   | Type_abstr
   | Type_variant of (string * type_expr list) list
 
-type constructor_description =
+and constructor_description =
     { cstr_type:  type_expr;
       cstr_args:  type_expr list;
       cstr_arity: int }
+
+and value_description =
+    { val_kind: value_kind;
+      val_tau:  type_expr }
+
+and value_kind =
+  | Val_regular
 
 let new_type_variable (_:unit): type_variable =
   ref None

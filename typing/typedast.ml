@@ -41,5 +41,12 @@ and expression_desc =
   | Texp_when of expression * expression
 
 
-val pattern_map_idents: (Ident.t -> Ident.t) -> pattern -> pattern
-
+let rec pattern_map_idents f pat =
+  match pat.pat_desc with
+    | Tpat_any -> pat
+    | Tpat_var(id) -> { pat with pat_desc = Tpat_var(f id) }
+    | Tpat_alias(pat', id) -> { pat with pat_desc = Tpat_alias(pattern_map_idents f pat', f id) }
+    | Tpat_constant(_) -> pat
+    | Tpat_tuple(patl) -> { pat with pat_desc = Tpat_tuple(List.map (pattern_map_idents f) patl) }
+    | Tpat_construct(cstr, patl) -> { pat with pat_desc = Tpat_construct(cstr, List.map (pattern_map_idents f) patl) }
+    | Tpat_or(pat1, pat2) -> { pat with pat_desc = Tpat_or(pattern_map_idents f pat1, pattern_map_idents f pat2) }
