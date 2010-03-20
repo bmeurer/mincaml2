@@ -183,13 +183,13 @@ end
 (**********************)
 
 let type_constant = function
-  | Const_int(_) -> Predefined.type_int
-  | Const_char(_) -> Predefined.type_char
-  | Const_float(_) -> Predefined.type_float
-  | Const_int32(_) -> Predefined.type_int32
-  | Const_int64(_) -> Predefined.type_int64
-  | Const_string(_) -> Predefined.type_string
-  | Const_nativeint(_) -> Predefined.type_nativeint
+  | Const_int(_) -> Typeenv.type_int
+  | Const_char(_) -> Typeenv.type_char
+  | Const_float(_) -> Typeenv.type_float
+  | Const_int32(_) -> Typeenv.type_int32
+  | Const_int64(_) -> Typeenv.type_int64
+  | Const_string(_) -> Typeenv.type_string
+  | Const_nativeint(_) -> Typeenv.type_nativeint
 
 let rec type_pat sigma gamma ppat rho =
   match ppat.ppat_desc with
@@ -296,10 +296,10 @@ and type_exp sigma gamma pe =
     | Pexp_construct(name, pe') ->
         assert false
     | Pexp_ifthenelse(pe0, pe1, pe2) ->
-        let e0 = solve_exp sigma gamma pe0 Predefined.type_bool in
+        let e0 = solve_exp sigma gamma pe0 Typeenv.type_bool in
           begin match pe2 with
             | None ->
-                let e1 = solve_exp sigma gamma pe1 Predefined.type_unit in
+                let e1 = solve_exp sigma gamma pe1 Typeenv.type_unit in
                   { exp_desc = Texp_ifthenelse(e0, e1, None);
                     exp_loc = pe.pexp_loc;
                     exp_tau = e1.exp_tau;
@@ -313,7 +313,7 @@ and type_exp sigma gamma pe =
                     exp_gamma = gamma }
           end
     | Pexp_sequence(pe1, pe2) ->
-        let e1 = solve_exp sigma gamma pe1 Predefined.type_unit in
+        let e1 = solve_exp sigma gamma pe1 Typeenv.type_unit in
         let e2 = type_exp sigma gamma pe2 in
           { exp_desc = Texp_sequence(e1, e2);
             exp_loc = pe.pexp_loc;
@@ -323,7 +323,7 @@ and type_exp sigma gamma pe =
         let tau = translate_type Open sigma gamma ptau in
           solve_exp sigma gamma pe tau
     | Pexp_when(pe1, pe2) ->
-        let e1 = solve_exp sigma gamma pe1 Predefined.type_bool in
+        let e1 = solve_exp sigma gamma pe1 Typeenv.type_bool in
         let e2 = type_exp sigma gamma pe2 in
           { exp_desc = Texp_when(e1, e2);
             exp_loc = pe.pexp_loc;

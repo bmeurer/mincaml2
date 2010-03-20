@@ -11,8 +11,6 @@ SOURCES=			\
 	parsing/syntaxerr.mli	\
 	typing/ident.ml		\
 	typing/ident.mli	\
-	typing/predefined.ml	\
-	typing/predefined.mli	\
 	typing/typedast.ml	\
 	typing/typedast.mli	\
 	typing/typeenv.ml	\
