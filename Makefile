@@ -11,14 +11,14 @@ SOURCES=			\
 	parsing/syntaxerr.mli	\
 	typing/ident.ml		\
 	typing/ident.mli	\
-	typing/identmap.ml	\
-	typing/identmap.mli	\
 	typing/predefined.ml	\
 	typing/predefined.mli	\
 	typing/typedast.mli	\
+	typing/typeenv.ml	\
 	typing/typeenv.mli	\
 	typing/types.ml		\
 	typing/types.mli	\
+	typing/typing.ml	\
 	utils/rbmap.ml		\
 	utils/rbmap.mli		\
 	utils/rbset.ml		\
