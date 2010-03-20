@@ -441,8 +441,6 @@ typ_star_list:
 simple_typ:
 | QUOTE ident
     { mktyp (Ptyp_var($2)) }
-| UNDERSCORE
-    { mktyp (Ptyp_any) }
 | LOWERCASEIDENT
     { mktyp (Ptyp_construct($1, [])) }
 | simple_typ LOWERCASEIDENT

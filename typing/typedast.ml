@@ -4,7 +4,7 @@ open Types
 type pattern =
     { pat_desc:  pattern_desc;
       pat_loc:   Location.t;
-      pat_tau:   type_expr;
+      pat_tau:   typ;
       pat_gamma: Typeenv.t }
 
 and pattern_desc =
@@ -19,7 +19,7 @@ and pattern_desc =
 and expression =
     { exp_desc:  expression_desc;
       exp_loc:   Location.t;
-      exp_tau:   type_expr;
+      exp_tau:   typ;
       exp_gamma: Typeenv.t }
 
 and partial =

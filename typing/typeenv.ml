@@ -18,18 +18,18 @@ let ident_list = Ident.create "list"
 let ident_option = Ident.create "option"
 
 (* Predefined types *)
-let type_int = Tconstruct(ident_int, [])
-let type_char = Tconstruct(ident_char, [])
-let type_float = Tconstruct(ident_float, [])
-let type_int32 = Tconstruct(ident_int32, [])
-let type_int64 = Tconstruct(ident_int64, [])
-let type_string = Tconstruct(ident_string, [])
-let type_nativeint = Tconstruct(ident_nativeint, [])
-let type_exn = Tconstruct(ident_exn, [])
-let type_unit = Tconstruct(ident_unit, [])
-let type_bool = Tconstruct(ident_bool, [])
-let type_list tau = Tconstruct(ident_list, [tau])
-let type_option tau = Tconstruct(ident_option, [tau])
+let type_int = new_generic_typ (Tconstruct(ident_int, []))
+let type_char = new_generic_typ (Tconstruct(ident_char, []))
+let type_float = new_generic_typ (Tconstruct(ident_float, []))
+let type_int32 = new_generic_typ (Tconstruct(ident_int32, []))
+let type_int64 = new_generic_typ (Tconstruct(ident_int64, []))
+let type_string = new_generic_typ (Tconstruct(ident_string, []))
+let type_nativeint = new_generic_typ (Tconstruct(ident_nativeint, []))
+let type_exn = new_generic_typ (Tconstruct(ident_exn, []))
+let type_unit = new_generic_typ (Tconstruct(ident_unit, []))
+let type_bool = new_generic_typ (Tconstruct(ident_bool, []))
+let type_list tau = new_generic_typ (Tconstruct(ident_list, [tau]))
+let type_option tau = new_generic_typ (Tconstruct(ident_option, [tau]))
 
 type t =
     { types:          type_declaration IdentMap.t;

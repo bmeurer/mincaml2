@@ -14,8 +14,8 @@ let name id =
 
 let compare id1 id2 =
   let c = id1.stamp - id2.stamp in
-    if c <> 0 then c
-    else String.compare id1.name id2.name
+    assert (c <> 0 || String.compare id1.name id2.name = 0);
+    c
 
 let equal id1 id2 =
   compare id1 id2 = 0

@@ -5,7 +5,6 @@ type typ =
       ptyp_loc:  Location.t }
 
 and typ_desc =
-  | Ptyp_any
   | Ptyp_var of string
   | Ptyp_arrow of typ * typ
   | Ptyp_tuple of typ list

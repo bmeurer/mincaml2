@@ -1,18 +1,18 @@
 open Types
 
 (* Predefined types *)
-val type_int: type_expr
-val type_char: type_expr
-val type_float: type_expr
-val type_int32: type_expr
-val type_int64: type_expr
-val type_string: type_expr
-val type_nativeint: type_expr
-val type_exn: type_expr
-val type_unit: type_expr
-val type_bool: type_expr
-val type_list: type_expr -> type_expr
-val type_option: type_expr -> type_expr
+val type_int: typ
+val type_char: typ
+val type_float: typ
+val type_int32: typ
+val type_int64: typ
+val type_string: typ
+val type_nativeint: typ
+val type_exn: typ
+val type_unit: typ
+val type_bool: typ
+val type_list: typ -> typ
+val type_option: typ -> typ
 
 (* Type of a type environment *)
 type t
