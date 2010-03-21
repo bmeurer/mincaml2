@@ -1,3 +1,4 @@
+open Format
 open Lexing
 
 type t =
@@ -29,3 +30,12 @@ let curr (lexbuf:Lexing.lexbuf): t =
   { loc_start = lexbuf.lex_start_p;
     loc_end = lexbuf.lex_curr_p;
     loc_ghost = false }
+
+let print ppf loc =
+  let line, startchar = loc.loc_start.pos_lnum, loc.loc_start.pos_cnum in
+  let endchar = loc.loc_end.pos_cnum - loc.loc_start.pos_cnum + startchar in
+    fprintf ppf "Line %i, characters %i-%i:@." line startchar endchar
+
+let print_error ppf loc =
+  print ppf loc;
+  fprintf ppf "Error: "
