@@ -361,17 +361,16 @@ type_declarations:
 
 type_declaration:
 | type_parameters LOWERCASEIDENT type_kind
-    { let (desc, typ) = $3 in
-        $2, {ptype_params = $1; ptype_desc = desc; ptype_typ = typ; ptype_loc = symbol_rloc ()} }
+    { $2, {ptype_params = $1; ptype_desc = $3; ptype_loc = symbol_rloc ()} }
 ;
 
 type_kind:
 | /* empty */
-    { Ptype_abstract, None }
+    { Ptype_abstract }
 | EQUAL typ
-    { Ptype_abstract, Some($2) }
+    { Ptype_abbrev($2) }
 | EQUAL constructor_declarations
-    { Ptype_variant(List.rev $2), None }
+    { Ptype_variant(List.rev $2) }
 ;
 
 type_parameters:

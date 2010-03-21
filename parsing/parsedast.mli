@@ -46,11 +46,11 @@ and expression_desc =
 and type_declaration =
     { ptype_params: string list;
       ptype_desc:   type_declaration_desc;
-      ptype_typ:    typ option;
       ptype_loc:    Location.t }
 
 and type_declaration_desc =
   | Ptype_abstract
+  | Ptype_abbrev of typ
   | Ptype_variant of (string * typ list * Location.t) list
 
 and exn_declaration =
