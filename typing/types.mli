@@ -11,11 +11,11 @@ and typ_desc =
 type type_declaration =
     { type_params: typ list;
       type_arity:  int;
-      type_desc:   type_declaration_desc;
-      type_typ:    typ option }
+      type_desc:   type_declaration_desc }
 
 and type_declaration_desc =
-  | Type_abstr
+  | Type_abstract
+  | Type_abbrev of typ
   | Type_variant of (string * typ list) list
 
 and exn_declaration =
@@ -42,9 +42,10 @@ val new_global_var: unit -> typ
 val increase_typ_level: unit -> unit
 val decrease_typ_level: unit -> unit
 
+val repr: typ -> typ
+
 val nongeneralize: typ -> unit
 val generalize: typ -> unit
 val instantiate: typ -> typ
 
-exception Unify_error of (typ * typ) list
-val unify: typ -> typ -> unit
+val expand: type_declaration -> typ list -> typ

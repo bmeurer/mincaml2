@@ -31,6 +31,78 @@ let rec is_value exp =
     | _ -> false
 
 
+(*******************)
+(*** Unification ***)
+(*******************)
+
+exception Unify_error of (typ * typ) list
+
+(* Check if tau0 appears in tau, lowering variable levels to level0 *)
+let occur level0 tau0 tau =
+  let rec occur_aux tau =
+    match repr tau with
+      | { typ_desc = Tvar(_) } as tau -> tau.typ_level <- min tau.typ_level level0; tau == tau0
+      | { typ_desc = Tarrow(tau1, tau2) } -> occur_aux tau1 || occur_aux tau2
+      | { typ_desc = Ttuple(taul) }
+      | { typ_desc = Tconstruct(_, taul) } -> List.exists occur_aux taul
+  in occur_aux tau
+
+(* Expand tau if it is an abbreviation. Returns tau otherwise. *)
+let expand gamma tau =
+  match tau.typ_desc with
+    | Tconstruct(ident, taul) ->
+        begin try
+          Types.expand (Typeenv.lookup_type ident gamma) taul
+        with
+          | Invalid_argument("Types.expand") -> tau
+        end
+    | _ ->
+        tau
+
+(* Unification *)
+let rec unify gamma tau1 tau2 =
+  if tau1 == tau2 then () else
+    let tau1 = repr tau1 and tau2 = repr tau2 in
+      if tau1 == tau2 then () else
+        try
+          match tau1.typ_desc, tau2.typ_desc with
+            | Tvar(alpha1), Tvar(alpha2) ->
+                if tau1.typ_level < tau2.typ_level then
+                  begin
+                    tau2.typ_level <- tau1.typ_level;
+                    alpha2 := Some(tau1)
+                  end
+                else
+                  begin
+                    tau1.typ_level <- tau2.typ_level;
+                    alpha1 := Some(tau2)
+                  end
+            | Tvar(alpha1), _ when not (occur tau1.typ_level tau1 tau2) ->
+                alpha1 := Some(tau2)
+            | _, Tvar(alpha2) when not (occur tau2.typ_level tau2 tau1) ->
+                alpha2 := Some(tau1)
+            | Tarrow(tau1, tau1'), Tarrow(tau2, tau2') ->
+                unify gamma tau1 tau2;
+                unify gamma tau1' tau2'
+            | Ttuple(tau1l), Ttuple(tau2l) ->
+                List.iter2 (unify gamma) tau1l tau2l
+            | Tconstruct(ident1, tau1l), Tconstruct(ident2, tau2l) when Ident.equal ident1 ident2 ->
+                List.iter2 (unify gamma) tau1l tau2l
+            | _ ->
+                (* expand abbreviations and try again if either type was actually expanded *)
+                let tau1' = expand gamma tau1 in
+                let tau2' = expand gamma tau2 in
+                  if tau1 != tau1' || tau2 != tau2' then
+                    unify gamma tau1' tau2'
+                  else
+                    raise (Unify_error([]))
+        with
+          | Invalid_argument("List.iter2") ->
+              raise (Unify_error([tau1, tau2]))
+          | Unify_error(taupl) ->
+              raise (Unify_error((tau1, tau2) :: taupl))
+
+
 (********************************)
 (*** Translating parsed types ***)
 (********************************)
@@ -101,7 +173,7 @@ struct
   (* Check if the environments rho1 and rho2 match on the names
      of their declared identifiers and generate a list which maps
      the identifiers of rho2 to their counterparts in rho1 *)
-  let unify rho1 rho2 =
+  let unify gamma rho1 rho2 =
     let rec unify_aux rho1 rho2 accu =
       match rho1, rho2 with
         | [], [] ->
@@ -110,7 +182,7 @@ struct
             let c = String.compare (Ident.name id1) (Ident.name id2) in
               if c = 0 then
                 try
-                  unify tau2 tau1;
+                  unify gamma tau2 tau1;
                   unify_aux rho1 rho2 ((id2, id1) :: accu)
                 with
                   | Unify_error(taupl) -> raise (Error(Pattern_type_mismatch(taupl, loc2)))
@@ -182,7 +254,7 @@ let rec type_pat gamma ppat rho =
     | Ppat_or(ppat1, ppat2) ->
         let pat1, rho1 = type_pat gamma ppat1 rho in
         let pat2, rho2 = solve_pat gamma ppat2 pat1.pat_tau rho in
-        let map2to1 = PatternEnv.unify rho1 rho2 in
+        let map2to1 = PatternEnv.unify gamma rho1 rho2 in
           { pat_desc = Tpat_or(pat1, pattern_map_idents (fun id -> List.assq id map2to1) pat2);
             pat_loc = ppat.ppat_loc;
             pat_tau = pat1.pat_tau;
@@ -202,7 +274,7 @@ and type_pat_list gamma ppatl rho =
 and solve_pat gamma ppat tau rho =
   try
     let pat, rho = type_pat gamma ppat rho in
-      unify pat.pat_tau tau;
+      unify gamma pat.pat_tau tau;
       pat, rho
   with
     | Unify_error(taupl) ->
@@ -305,7 +377,7 @@ and type_exp gamma pexp =
 and solve_exp gamma pexp tau =
   try
     let exp = type_exp gamma pexp in
-      unify exp.exp_tau tau;
+      unify gamma exp.exp_tau tau;
       exp
   with
     | Unify_error(taupl) ->

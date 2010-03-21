@@ -11,11 +11,11 @@ and typ_desc =
 type type_declaration =
     { type_params: typ list;
       type_arity:  int;
-      type_desc:   type_declaration_desc;
-      type_typ:    typ option }
+      type_desc:   type_declaration_desc }
 
 and type_declaration_desc =
-  | Type_abstr
+  | Type_abstract
+  | Type_abbrev of typ
   | Type_variant of (string * typ list) list
 
 and exn_declaration =
@@ -151,58 +151,31 @@ let rec cleanup tau =
 
 (* Instantiate a generic type *)
 let instantiate tau =
-  let tau = duplicate tau in
+  let tau' = duplicate tau in
     cleanup tau;
-    tau
+    tau'
 
 
-(*******************)
-(*** Unification ***)
-(*******************)
+(*********************)
+(*** Abbreviations ***)
+(*********************)
 
-exception Unify_error of (typ * typ) list
+(* Bind a type variable to a type *)
+let bind tau1 tau2 =
+  match tau1.typ_desc with
+    | Tvar({ contents = None } as alpha1) -> alpha1 := Some(tau2)
+    | _ -> invalid_arg "Types.bind"
 
-(* Check if tau0 appears in tau, lowering variable levels to level0 *)
-let occur level0 tau0 tau =
-  let rec occur_aux tau =
-    match repr tau with
-      | { typ_desc = Tvar(_) } as tau -> tau.typ_level <- min tau.typ_level level0; tau == tau0
-      | { typ_desc = Tarrow(tau1, tau2) } -> occur_aux tau1 || occur_aux tau2
-      | { typ_desc = Ttuple(taul) }
-      | { typ_desc = Tconstruct(_, taul) } -> List.exists occur_aux taul
-  in occur_aux tau
+(* Expand abbreviations *)
+let expand decl taul =
+  match decl.type_desc with
+    | Type_abbrev(abbrev) ->
+        let type_params = List.map duplicate decl.type_params in
+        let type_abbrev = duplicate abbrev in
+          List.iter cleanup decl.type_params;
+          cleanup abbrev;
+          List.iter2 bind type_params taul;
+          type_abbrev
+    | _ ->
+        invalid_arg "Types.expand"
 
-let rec unify tau1 tau2 =
-  if tau1 == tau2 then () else
-    let tau1 = repr tau1 and tau2 = repr tau2 in
-      if tau1 == tau2 then () else
-        try
-          match tau1.typ_desc, tau2.typ_desc with
-            | Tvar(alpha1), Tvar(alpha2) ->
-                if tau1.typ_level < tau2.typ_level then
-                  begin
-                    tau2.typ_level <- tau1.typ_level;
-                    alpha2 := Some(tau1)
-                  end
-                else
-                  begin
-                    tau1.typ_level <- tau2.typ_level;
-                    alpha1 := Some(tau2)
-                  end
-            | Tvar(alpha1), _ when not (occur tau1.typ_level tau1 tau2) ->
-                alpha1 := Some(tau2)
-            | _, Tvar(alpha2) when not (occur tau2.typ_level tau2 tau1) ->
-                alpha2 := Some(tau1)
-            | Tarrow(tau1, tau1'), Tarrow(tau2, tau2') ->
-                unify tau1 tau2;
-                unify tau1' tau2'
-            | Ttuple(tau1l), Ttuple(tau2l) ->
-                List.iter2 unify tau1l tau2l
-            (* TODO - Tconstr *)
-            | _ ->
-                raise (Unify_error([]))
-        with
-          | Invalid_argument("List.iter2") ->
-              raise (Unify_error([tau1, tau2]))
-          | Unify_error(taupl) ->
-              raise (Unify_error((tau1, tau2) :: taupl))
