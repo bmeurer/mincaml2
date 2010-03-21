@@ -31,23 +31,62 @@ let type_bool = new_generic_typ (Tconstruct(ident_bool, []))
 let type_list tau = new_generic_typ (Tconstruct(ident_list, [tau]))
 let type_option tau = new_generic_typ (Tconstruct(ident_option, [tau]))
 
+
+(****************************************************)
+(*** Determine constructors for type declarations ***)
+(****************************************************)
+
+let constructors_of_variants cstr_type variants =
+  let rec constructors_of_variants_aux cstr_tag = function
+    | [] ->
+        []
+    | (cstr_name, cstr_args) :: variants ->
+        let cstr = { cstr_type = cstr_type;
+                     cstr_args = cstr_args;
+                     cstr_arity = List.length cstr_args;
+                     cstr_tag = cstr_tag } in
+          (cstr_name, cstr) :: constructors_of_variants_aux (cstr_tag + 1) variants
+  in constructors_of_variants_aux 0 variants
+
+let constructors_of_decl id decl =
+  match decl.type_desc with
+    | Type_abstract
+    | Type_abbrev(_) -> []
+    | Type_variant(variants) -> constructors_of_variants (new_generic_typ (Tconstruct(id, decl.type_params))) variants
+
+
+(*********************************)
+(*** Type environment handling ***)
+(*********************************)
+
 type t =
-    { types:          type_declaration IdentMap.t;
+    { cstrs:          constructor_description IdentMap.t;
+      cstrs_mapping:  Ident.t StringMap.t;
+      types:          type_declaration IdentMap.t;
       types_mapping:  Ident.t StringMap.t;
       values:         value_description IdentMap.t;
       values_mapping: Ident.t StringMap.t }
 
 let empty =
-  { types = IdentMap.empty;
+  { cstrs = IdentMap.empty;
+    cstrs_mapping = StringMap.empty;
+    types = IdentMap.empty;
     types_mapping = StringMap.empty;
     values = IdentMap.empty; 
     values_mapping = StringMap.empty }
+
+let lookup_cstr id gamma =
+  IdentMap.find id gamma.cstrs
 
 let lookup_type id gamma =
   IdentMap.find id gamma.types
 
 let lookup_value id gamma =
   IdentMap.find id gamma.values
+
+let find_cstr name gamma =
+  let id = StringMap.find name gamma.cstrs_mapping in
+    id, lookup_cstr id gamma
 
 let find_type name gamma = 
   let id = StringMap.find name gamma.types_mapping in
@@ -57,7 +96,17 @@ let find_value name gamma =
   let id = StringMap.find name gamma.values_mapping in
     id, lookup_value id gamma
 
+let add_cstr id cstr gamma =
+  let name = Ident.name id in
+    { gamma with
+        cstrs = IdentMap.add id cstr gamma.cstrs;
+        cstrs_mapping = StringMap.add name id gamma.cstrs_mapping }
+
 let add_type id decl gamma =
+  let gamma = (List.fold_left
+                 (fun gamma (name, cstr) -> add_cstr (Ident.create name) cstr gamma)
+                 gamma
+                 (constructors_of_decl id decl)) in
   let name = Ident.name id in
     { gamma with
         types = IdentMap.add id decl gamma.types;

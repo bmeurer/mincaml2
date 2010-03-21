@@ -13,7 +13,7 @@ and pattern_desc =
   | Tpat_alias of pattern * Ident.t
   | Tpat_constant of constant
   | Tpat_tuple of pattern list
-  | Tpat_construct of constructor_description * pattern list
+  | Tpat_construct of Ident.t * pattern list
   | Tpat_or of pattern * pattern
 
 and expression =
@@ -35,7 +35,7 @@ and expression_desc =
   | Texp_match of expression * (pattern * expression) list * partial
   | Texp_try of expression * (pattern * expression) list
   | Texp_tuple of expression list
-  | Texp_construct of constructor_description * expression list
+  | Texp_construct of Ident.t * expression list
   | Texp_ifthenelse of expression * expression * expression option
   | Texp_sequence of expression * expression
   | Texp_when of expression * expression

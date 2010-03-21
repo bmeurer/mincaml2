@@ -25,7 +25,8 @@ and exn_declaration =
 and constructor_description =
     { cstr_type:  typ;
       cstr_args:  typ list;
-      cstr_arity: int }
+      cstr_arity: int;
+      cstr_tag:   int }
 
 and value_description =
     { val_kind: value_kind;
@@ -50,5 +51,6 @@ val repr: typ -> typ
 val nongeneralize: typ -> unit
 val generalize: typ -> unit
 val instantiate: typ -> typ
+val instantiate_cstr: constructor_description -> typ list * typ
 
 val expand: type_declaration -> typ list -> typ

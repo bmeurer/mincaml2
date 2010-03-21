@@ -25,7 +25,8 @@ and exn_declaration =
 and constructor_description =
     { cstr_type:  typ;
       cstr_args:  typ list;
-      cstr_arity: int }
+      cstr_arity: int;
+      cstr_tag:   int }
 
 and value_description =
     { val_kind: value_kind;
@@ -163,6 +164,14 @@ let instantiate tau =
     cleanup tau;
     tau'
 
+(* Instantiate a constructor *)
+let instantiate_cstr cstr =
+  let cstr_type = duplicate cstr.cstr_type in
+  let cstr_args = List.map duplicate cstr.cstr_args in
+    cleanup cstr.cstr_type;
+    List.iter cleanup cstr.cstr_args;
+    (cstr_args, cstr_type)
+
 
 (*********************)
 (*** Abbreviations ***)
@@ -186,4 +195,6 @@ let expand decl taul =
           type_abbrev
     | _ ->
         invalid_arg "Types.expand"
+
+
 

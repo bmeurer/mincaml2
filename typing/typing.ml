@@ -5,6 +5,7 @@ open Types
 
 
 type error =
+  | Constructor_arity_mismatch of Ident.t * int * int * Location.t
   | Cyclic_abbreviation of Ident.t * Location.t
   | Duplicate_constructor of string * Location.t
   | Duplicate_pattern_variable of string * Location.t
@@ -13,7 +14,7 @@ type error =
   | Expression_type_mismatch of (typ * typ) list * Location.t
   | Pattern_variable_missing of Ident.t * Location.t
   | Pattern_type_mismatch of (typ * typ) list * Location.t
-  | Type_arity_mismatch of string * int * int * Location.t
+  | Type_arity_mismatch of Ident.t * int * int * Location.t
   | Unbound_type_constructor of string * Location.t
   | Unbound_type_variable of string * Location.t
 
@@ -93,11 +94,13 @@ let rec unify gamma tau1 tau2 =
             | Tconstruct(ident1, tau1l), Tconstruct(ident2, tau2l) when Ident.equal ident1 ident2 ->
                 List.iter2 (unify gamma) tau1l tau2l
             | _ ->
-                (* expand abbreviations and try again if either type was actually expanded *)
-                let tau1' = expand gamma tau1 in
-                let tau2' = expand gamma tau2 in
-                  if tau1 != tau1' || tau2 != tau2' then
-                    unify gamma tau1' tau2'
+                (* Expand abbreviations and try again if either type was actually expanded.
+                   We will not recurse forever, as type abbreviations are guaranteed to be
+                   non-cyclic (see the checks in translate_type_decls). *)
+                let tau1_expanded = expand gamma tau1 in
+                let tau2_expanded = expand gamma tau2 in
+                  if tau1 != tau1_expanded || tau2 != tau2_expanded then
+                    unify gamma tau1_expanded tau2_expanded
                   else
                     raise (Unify_error([]))
         with
@@ -157,13 +160,13 @@ let rec translate_type policy gamma ptau =
         new_typ (Ttuple(List.map (translate_type policy gamma) ptaul))
     | Ptyp_construct(name, ptaul) ->
         begin try
-          let ident, decl = Typeenv.find_type name gamma in
+          let id, decl = Typeenv.find_type name gamma in
           let taul = List.map (translate_type policy gamma) ptaul in
           let taul_length = List.length taul in
             if taul_length <> decl.type_arity then
-              raise (Error(Type_arity_mismatch(name, decl.type_arity, taul_length, ptau.ptyp_loc)))
+              raise (Error(Type_arity_mismatch(id, decl.type_arity, taul_length, ptau.ptyp_loc)))
             else
-              new_typ (Tconstruct(ident, taul))
+              new_typ (Tconstruct(id, taul))
         with
           | Not_found ->
               raise (Error(Unbound_type_constructor(name, ptau.ptyp_loc)))
@@ -341,6 +344,7 @@ end
 (*** Type inference ***)
 (**********************)
 
+(* Determine an instance of the constants type *)
 let type_constant c =
   instantiate (match c with
                  | Const_int(_) -> Typeenv.type_int
@@ -351,6 +355,7 @@ let type_constant c =
                  | Const_string(_) -> Typeenv.type_string
                  | Const_nativeint(_) -> Typeenv.type_nativeint)
 
+(* TODO *)
 let rec type_pat gamma ppat rho =
   match ppat.ppat_desc with
     | Ppat_any ->
@@ -384,8 +389,29 @@ let rec type_pat gamma ppat rho =
             pat_tau = new_typ (Ttuple(List.map (fun pat -> pat.pat_tau) patl));
             pat_gamma = gamma }, rho
     | Ppat_construct(name, ppat') ->
-        (* TODO *)
-        assert false
+        begin try
+          let id, cstr = Typeenv.find_cstr name gamma in
+          let ppatl = (match ppat' with
+                         | None ->
+                             []
+                         | Some({ ppat_desc = Ppat_tuple(ppatl) }) when cstr.cstr_arity > 1 ->
+                             ppatl
+                         | Some({ ppat_desc = Ppat_any } as ppat) when cstr.cstr_arity <> 1 ->
+                             Array.to_list (Array.make cstr.cstr_arity ppat)
+                         | Some(ppat) ->
+                             [ppat]) in
+          let ppatl_length = List.length ppatl in
+            if ppatl_length <> cstr.cstr_arity then
+              raise (Error(Constructor_arity_mismatch(id, cstr.cstr_arity, ppatl_length, ppat.ppat_loc)));
+            let taul, tau = instantiate_cstr cstr in
+            let patl, rho = solve_pat_list gamma ppatl taul rho in
+              { pat_desc = Tpat_construct(id, patl);
+                pat_loc = ppat.ppat_loc;
+                pat_tau = tau;
+                pat_gamma = gamma }, rho
+        with
+          | Not_found -> raise (Error(Unbound_type_constructor(name, ppat.ppat_loc)))
+        end
     | Ppat_or(ppat1, ppat2) ->
         let pat1, rho1 = type_pat gamma ppat1 rho in
         let pat2, rho2 = solve_pat gamma ppat2 pat1.pat_tau rho in
@@ -414,6 +440,19 @@ and solve_pat gamma ppat tau rho =
   with
     | Unify_error(taupl) ->
         raise (Error(Pattern_type_mismatch(taupl, ppat.ppat_loc)))
+
+and solve_pat_list gamma ppatl taul rho =
+  try
+    let patl, rho = (List.fold_left2
+                       (fun (patl, rho) ppat tau ->
+                          let pat, rho = solve_pat gamma ppat tau rho in
+                            pat :: patl, rho)
+                       ([], rho)
+                       ppatl
+                       taul) in
+      List.rev patl, rho
+  with
+    | Invalid_argument("List.fold_left2") -> invalid_arg "Typing.solve_pat_list"
 
 and type_exp gamma pexp =
   match pexp.pexp_desc with
@@ -474,7 +513,24 @@ and type_exp gamma pexp =
             exp_tau = new_typ (Ttuple(List.map (fun exp -> exp.exp_tau) expl));
             exp_gamma = gamma }
     | Pexp_construct(name, pexp') ->
-        assert false
+        begin try
+          let id, cstr = Typeenv.find_cstr name gamma in
+          let pexpl = (match pexp' with
+                         | None -> []
+                         | Some({ pexp_desc = Pexp_tuple(pexpl) }) when cstr.cstr_arity > 1 -> pexpl
+                         | Some(pexp) -> [pexp]) in
+          let pexpl_length = List.length pexpl in
+            if pexpl_length <> cstr.cstr_arity then
+              raise (Error(Constructor_arity_mismatch(id, cstr.cstr_arity, pexpl_length, pexp.pexp_loc)));
+            let taul, tau = instantiate_cstr cstr in
+            let expl = solve_exp_list gamma pexpl taul in
+              { exp_desc = Texp_construct(id, expl);
+                exp_loc = pexp.pexp_loc;
+                exp_tau = tau;
+                exp_gamma = gamma }
+        with 
+          | Not_found -> raise (Error(Unbound_type_constructor(name, pexp.pexp_loc)))
+        end
     | Pexp_ifthenelse(pexp0, pexp1, pexp2) ->
         let exp0 = solve_exp gamma pexp0 (instantiate Typeenv.type_bool) in
           begin match pexp2 with
@@ -517,6 +573,12 @@ and solve_exp gamma pexp tau =
   with
     | Unify_error(taupl) ->
         raise (Error(Expression_type_mismatch(taupl, pexp.pexp_loc)))
+
+and solve_exp_list gamma pexpl taul =
+  try
+    List.map2 (solve_exp gamma) pexpl taul
+  with
+    | Invalid_argument("List.map2") -> invalid_arg "Typing.solve_exp_list"
 
 and solve_cases gamma pcases tau tau' =
   let cases = (List.map
