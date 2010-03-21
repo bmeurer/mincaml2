@@ -211,14 +211,14 @@ let initial =
                     add_value (Ident.create name) { val_kind = Val_regular; val_tau = tau } gamma)
                  gamma
                  [
-                   ("=", let tau = new_generic_var () in type_arrow tau (type_arrow tau tau));
-                   ("<>", let tau = new_generic_var () in type_arrow tau (type_arrow tau tau));
-                   ("<=", let tau = new_generic_var () in type_arrow tau (type_arrow tau tau));
-                   ("<", let tau = new_generic_var () in type_arrow tau (type_arrow tau tau));
-                   (">", let tau = new_generic_var () in type_arrow tau (type_arrow tau tau));
-                   (">=", let tau = new_generic_var () in type_arrow tau (type_arrow tau tau));
-                   ("==", let tau = new_generic_var () in type_arrow tau (type_arrow tau tau));
-                   ("!=", let tau = new_generic_var () in type_arrow tau (type_arrow tau tau));
+                   ("=", let tau = new_generic_var () in type_arrow tau (type_arrow tau type_bool));
+                   ("<>", let tau = new_generic_var () in type_arrow tau (type_arrow tau type_bool));
+                   ("<=", let tau = new_generic_var () in type_arrow tau (type_arrow tau type_bool));
+                   ("<", let tau = new_generic_var () in type_arrow tau (type_arrow tau type_bool));
+                   (">", let tau = new_generic_var () in type_arrow tau (type_arrow tau type_bool));
+                   (">=", let tau = new_generic_var () in type_arrow tau (type_arrow tau type_bool));
+                   ("==", let tau = new_generic_var () in type_arrow tau (type_arrow tau type_bool));
+                   ("!=", let tau = new_generic_var () in type_arrow tau (type_arrow tau type_bool));
                    ("+", type_arrow type_int (type_arrow type_int type_int));
                    ("-", type_arrow type_int (type_arrow type_int type_int));
                    ("*", type_arrow type_int (type_arrow type_int type_int));

@@ -1,25 +1,71 @@
 open Astcommon
+open Format
 open Parsedast
 open Typedast
 open Types
 
 
+(***********************)
+(*** Error reporting ***)
+(***********************)
+
 type error =
-  | Constructor_arity_mismatch of Ident.t * int * int
-  | Cyclic_abbreviation of Ident.t
+  | Constructor_arity_mismatch of string * int * int
+  | Cyclic_abbreviation of string
   | Duplicate_constructor of string
   | Duplicate_pattern_variable of string
   | Duplicate_type_constructor of string
-  | Duplicate_type_param of string
+  | Duplicate_type_parameter of string
   | Expression_type_mismatch of (typ * typ) list
-  | Pattern_variable_missing of Ident.t
+  | Pattern_variable_missing of string
   | Pattern_type_mismatch of (typ * typ) list
-  | Type_arity_mismatch of Ident.t * int * int
+  | Type_arity_mismatch of string * int * int
+  | Unbound_constructor of string
   | Unbound_type_constructor of string
   | Unbound_type_variable of string
   | Unbound_value of string
 
 exception Error of error * Location.t
+
+let report_error ppf = function
+  | Constructor_arity_mismatch(name, expected, provided) ->
+      fprintf ppf
+        "@[The constructor %s expects %i argument(s),@ \
+         but is applied here to %i argument(s)@]"
+        name expected provided
+  | Cyclic_abbreviation(name) ->
+      fprintf ppf "The type abbreviation %s is cyclic" name
+  | Duplicate_constructor(name) ->
+      fprintf ppf "Two constructors are named %s" name
+  | Duplicate_pattern_variable(name) ->
+      fprintf ppf "Variable %s is bound several times in this matching" name
+  | Duplicate_type_constructor(name) ->
+      fprintf ppf "Two type constructors are named %s" name
+  | Duplicate_type_parameter(name) ->
+      fprintf ppf "The type parameter '%s occurs several times" name
+  | Expression_type_mismatch(taul) ->
+      let provided, expected = List.hd taul in
+        fprintf ppf
+          "@[This expression has type %a,@ \
+           but an expression was expected of type %a@]"
+          print_typ provided print_typ expected
+  | Pattern_variable_missing(name) ->
+      fprintf ppf "Variable %s must occur on both sides of this | pattern" name
+  | Pattern_type_mismatch(_) ->
+      fprintf ppf "Type mismatch"
+  | Type_arity_mismatch(name, expected, provided) ->
+      fprintf ppf
+        "@[The type constructor %s expects %i argument(s),@ \
+         but is applied here to %i argument(s)@]"
+        name expected provided
+  | Unbound_constructor(name) ->
+      fprintf ppf "Unbound constructor %s" name
+  | Unbound_type_constructor(name) ->
+      fprintf ppf "Unbound type constructor %s" name
+  | Unbound_type_variable(name) ->
+      fprintf ppf "Unbound type variable '%s" name
+  | Unbound_value(name) ->
+      fprintf ppf "Unbound value %s" name
 
 
 (*********************)
@@ -130,7 +176,7 @@ let bind_translated_type_vars loc param_names =
         []
     | name :: names ->
         if List.mem name names then
-          raise (Error(Duplicate_type_param(name), loc));
+          raise (Error(Duplicate_type_parameter(name), loc));
         let tau = new_global_var () in
           translated_type_vars := (name, tau) :: !translated_type_vars;
           tau :: bind_translated_type_vars_aux names
@@ -165,12 +211,12 @@ let rec translate_type policy gamma ptau =
           let taul = translate_type_list policy gamma ptaul in
           let taul_length = List.length taul in
             if taul_length <> decl.type_arity then
-              raise (Error(Type_arity_mismatch(id, decl.type_arity, taul_length), ptau.ptyp_loc))
+              raise (Error(Type_arity_mismatch(name, decl.type_arity, taul_length), ptau.ptyp_loc))
             else
               new_typ (Tconstruct(id, taul))
         with
           | Not_found ->
-              raise (Error(Unbound_type_constructor(name), ptau.ptyp_loc))
+              raise (Error(Unbound_constructor(name), ptau.ptyp_loc))
         end
 
 (* TODO *)
@@ -253,7 +299,7 @@ let check_abbrev_decls iddecls pnameddecls =
             try
               let _, decl' = List.find (fun (id, _) -> Ident.equal id id') iddecls in
                 if decl' == decl then
-                  raise (Error(Cyclic_abbreviation(id), loc))
+                  raise (Error(Cyclic_abbreviation(Ident.name id), loc))
                 else
                   check_abbrev_decl loc id decl'
             with
@@ -329,10 +375,10 @@ struct
                   | Unify_error(taupl) -> raise (Error(Pattern_type_mismatch(taupl), loc2))
               else
                 let id, loc = if c < 0 then id1, loc1 else id2, loc2 in
-                  raise (Error(Pattern_variable_missing(id), loc))
+                  raise (Error(Pattern_variable_missing(Ident.name id), loc))
         | (id, _, loc) :: _, _
         | _, (id, _, loc) :: _ ->
-            raise (Error(Pattern_variable_missing(id), loc))
+            raise (Error(Pattern_variable_missing(Ident.name id), loc))
     in unify_aux rho1 rho2 []
 
   (* Merge the pattern environment rho into the type environment
@@ -405,7 +451,7 @@ let rec type_pat gamma ppat rho =
                              [ppat]) in
           let ppatl_length = List.length ppatl in
             if ppatl_length <> cstr.cstr_arity then
-              raise (Error(Constructor_arity_mismatch(id, cstr.cstr_arity, ppatl_length), ppat.ppat_loc));
+              raise (Error(Constructor_arity_mismatch(name, cstr.cstr_arity, ppatl_length), ppat.ppat_loc));
             let taul, tau = instantiate_cstr cstr in
             let patl, rho = solve_pat_list gamma ppatl taul rho in
               { pat_desc = Tpat_construct(id, patl);
@@ -413,7 +459,7 @@ let rec type_pat gamma ppat rho =
                 pat_tau = tau;
                 pat_gamma = gamma }, rho
         with
-          | Not_found -> raise (Error(Unbound_type_constructor(name), ppat.ppat_loc))
+          | Not_found -> raise (Error(Unbound_constructor(name), ppat.ppat_loc))
         end
     | Ppat_or(ppat1, ppat2) ->
         let pat1, rho1 = type_pat gamma ppat1 rho in
@@ -528,7 +574,7 @@ and type_exp gamma pexp =
                          | Some(pexp) -> [pexp]) in
           let pexpl_length = List.length pexpl in
             if pexpl_length <> cstr.cstr_arity then
-              raise (Error(Constructor_arity_mismatch(id, cstr.cstr_arity, pexpl_length), pexp.pexp_loc));
+              raise (Error(Constructor_arity_mismatch(name, cstr.cstr_arity, pexpl_length), pexp.pexp_loc));
             let taul, tau = instantiate_cstr cstr in
             let expl = solve_exp_list gamma pexpl taul in
               { exp_desc = Texp_construct(id, expl);
