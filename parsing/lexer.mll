@@ -155,7 +155,9 @@ rule token = parse
   | "'\\" (_ as escape)
       { raise (Error(Illegal_escape(escape, Location.curr lexbuf))) }
   | "(*"
-      { comment lexbuf; token lexbuf }
+      { comment_start_loc := [Location.curr lexbuf];
+        comment lexbuf;
+        token lexbuf }
   | "#" [' ' '\t']* (['0'-'9']+ as num) [' ' '\t']*
         ("\"" ([^ '\010' '\013' '"' ] * as name) "\"")?
         [^ '\010' '\013'] * newline
@@ -179,7 +181,7 @@ rule token = parse
       { INFIXOP0(Lexing.lexeme lexbuf) }
   | "^"
       { INFIXOP1(Lexing.lexeme lexbuf) }
-  | "+" | "-" | "+." | "-."
+  | "+" | "+."
       { INFIXOP2(Lexing.lexeme lexbuf) }
   | "*" | "*."
       { INFIXOP3(Lexing.lexeme lexbuf) }
