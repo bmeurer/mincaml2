@@ -40,12 +40,12 @@ let constructors_of_variants cstr_type variants =
   let rec constructors_of_variants_aux cstr_tag = function
     | [] ->
         []
-    | (cstr_name, cstr_args) :: variants ->
+    | (cstr_id, cstr_args) :: variants ->
         let cstr = { cstr_type = cstr_type;
                      cstr_args = cstr_args;
                      cstr_arity = List.length cstr_args;
                      cstr_tag = cstr_tag } in
-          (cstr_name, cstr) :: constructors_of_variants_aux (cstr_tag + 1) variants
+          (cstr_id, cstr) :: constructors_of_variants_aux (cstr_tag + 1) variants
   in constructors_of_variants_aux 0 variants
 
 let constructors_of_decl id decl =
@@ -102,9 +102,24 @@ let add_cstr id cstr gamma =
         cstrs = IdentMap.add id cstr gamma.cstrs;
         cstrs_mapping = StringMap.add name id gamma.cstrs_mapping }
 
+let add_exn id taul gamma =
+  (* figure out the exn type decl and its variants *)
+  let exn_decl = lookup_type ident_exn gamma in
+  let exn_variants = (match exn_decl.type_desc with Type_variant(variants) -> variants | _ -> assert false) in
+  (* create the new exception constructor *)
+  let cstr = { cstr_type = instantiate type_exn;
+               cstr_args = taul;
+               cstr_arity = List.length taul;
+               cstr_tag = List.length exn_variants } in
+    (* add the new exception to the exn variant, this way each
+       and every gamma will have the full exn variant *)
+    exn_decl.type_desc <- Type_variant((id, taul) :: exn_variants);
+    (* add the new exception constructor *)
+    add_cstr id cstr gamma
+
 let add_type id decl gamma =
   let gamma = (List.fold_left
-                 (fun gamma (name, cstr) -> add_cstr (Ident.create name) cstr gamma)
+                 (fun gamma (id, cstr) -> add_cstr id cstr gamma)
                  gamma
                  (constructors_of_decl id decl)) in
   let name = Ident.name id in

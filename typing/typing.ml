@@ -157,11 +157,11 @@ let rec translate_type policy gamma ptau =
     | Ptyp_arrow(ptau1, ptau2) ->
         new_typ (Tarrow(translate_type policy gamma ptau1, translate_type policy gamma ptau2))
     | Ptyp_tuple(ptaul) ->
-        new_typ (Ttuple(List.map (translate_type policy gamma) ptaul))
+        new_typ (Ttuple(translate_type_list policy gamma ptaul))
     | Ptyp_construct(name, ptaul) ->
         begin try
           let id, decl = Typeenv.find_type name gamma in
-          let taul = List.map (translate_type policy gamma) ptaul in
+          let taul = translate_type_list policy gamma ptaul in
           let taul_length = List.length taul in
             if taul_length <> decl.type_arity then
               raise (Error(Type_arity_mismatch(id, decl.type_arity, taul_length, ptau.ptyp_loc)))
@@ -171,6 +171,10 @@ let rec translate_type policy gamma ptau =
           | Not_found ->
               raise (Error(Unbound_type_constructor(name, ptau.ptyp_loc)))
         end
+
+(* TODO *)
+and translate_type_list policy gamma ptaul =
+  List.map (translate_type policy gamma) ptaul
 
 (* Translate a list of (name, parsed decl) pairs into a list of (ident, typed decl)
    triples with the typed decls set to Type_abstract. Ensures that type constructor
@@ -198,9 +202,9 @@ let rec translate_type_variants pre_gamma = function
       []
   | (name, ptaul, loc) :: pvariants ->
       let variants = translate_type_variants pre_gamma pvariants in
-        if List.mem_assoc name variants then
+        if List.exists (fun (id, _) -> Ident.name id = name) variants then
           raise (Error(Duplicate_constructor(name, loc)));
-        (name, List.map (translate_type Strict pre_gamma) ptaul) :: variants
+        (Ident.create name, translate_type_list Strict pre_gamma ptaul) :: variants
 
 (* Translate a single type declaration using the pre-environment pre_gamma. The returnd
    type declaration is generalized using the type parameters in pdecl. *)
@@ -630,9 +634,12 @@ and type_structure_item gamma pstr =
           { str_desc = Tstr_typ(iddecls);
             str_loc = pstr.pstr_loc;
             str_gamma = gamma }, Typeenv.add_types iddecls gamma
-    | Pstr_exn(_) ->
-        (* TODO *)
-        assert false
+    | Pstr_exn(name, ptaul) ->
+        let id = Ident.create name in
+        let taul = translate_type_list Strict gamma ptaul in
+          { str_desc = Tstr_exn(id, taul);
+            str_loc = pstr.pstr_loc;
+            str_gamma = gamma }, Typeenv.add_exn id taul gamma
 
 and type_structure gamma pstrl =
   let rec type_structure_aux gamma pstrl accu =
