@@ -1,27 +1,29 @@
 SOURCES=			\
+	utils/rbmap.ml		\
+	utils/rbmap.mli		\
+	utils/rbset.ml		\
+	utils/rbset.mli		\
 	parsing/astcommon.mli	\
-	parsing/lexer.ml	\
-	parsing/lexer.mli	\
 	parsing/location.ml	\
 	parsing/location.mli	\
 	parsing/parsedast.mli	\
-	parsing/parser.ml	\
-	parsing/parser.mli	\
 	parsing/syntaxerr.ml	\
 	parsing/syntaxerr.mli	\
+	parsing/parser.ml	\
+	parsing/parser.mli	\
+	parsing/lexer.ml	\
+	parsing/lexer.mli	\
 	typing/ident.ml		\
 	typing/ident.mli	\
+	typing/types.ml		\
+	typing/types.mli	\
 	typing/typedast.ml	\
 	typing/typedast.mli	\
 	typing/typeenv.ml	\
 	typing/typeenv.mli	\
-	typing/types.ml		\
-	typing/types.mli	\
 	typing/typing.ml	\
-	utils/rbmap.ml		\
-	utils/rbmap.mli		\
-	utils/rbset.ml		\
-	utils/rbset.mli
+	typing/typing.mli	\
+	toplevel.ml
 
 OBJECTS=$(patsubst %.ml,%.cmo,$(patsubst %.mli,%.cmi,$(SOURCES))) \
 	$(patsubst %.ml,%.cmx,$(patsubst %.mli,%.cmi,$(SOURCES)))
@@ -34,7 +36,10 @@ OCAMLDEPFLAGS=$(OCAMLCOMMONFLAGS)
 OCAMLOPT=ocamlopt.opt
 OCAMLOPTFLAGS=$(OCAMLCFLAGS)
 
-all: $(OBJECTS)
+all: toplevel
+
+toplevel: $(filter %.cmo,$(OBJECTS))
+	$(OCAMLC) $(OCAMLOPTFLAGS) -o $@ $^
 
 .SUFFIXES: .ml .mli .mll .mly .cmi .cmo .cmx
 

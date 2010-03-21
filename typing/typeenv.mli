@@ -32,3 +32,6 @@ val add_exn: Ident.t -> exn_declaration -> t -> t
 val add_type: Ident.t -> type_declaration -> t -> t
 val add_types: (Ident.t * type_declaration) list -> t -> t
 val add_value: Ident.t -> value_description -> t -> t
+
+(* The initial environment *)
+val initial: t

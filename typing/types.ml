@@ -11,8 +11,7 @@ and typ_desc =
 and type_declaration =
     { type_params:       typ list;
       type_arity:        int;
-      mutable type_desc: type_declaration_desc; (* mutable to support the open exn type *)
-      type_loc:          Location.t }
+      mutable type_desc: type_declaration_desc } (* mutable to support the open exn type *)
 
 and type_declaration_desc =
   | Type_abstract
@@ -50,6 +49,7 @@ let new_typ desc = new_typ_with_level desc !current_level
 let new_generic_typ desc = new_typ_with_level desc generic_level
 let new_global_typ desc = new_typ_with_level desc global_level
 let new_var () = new_typ (Tvar(ref None))
+let new_generic_var () = new_generic_typ (Tvar(ref None))
 let new_global_var () = new_global_typ (Tvar(ref None))
 
 type typ_level = int

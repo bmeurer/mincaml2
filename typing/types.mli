@@ -11,8 +11,7 @@ and typ_desc =
 type type_declaration =
     { type_params:       typ list;
       type_arity:        int;
-      mutable type_desc: type_declaration_desc; (* mutable to support the open exn type *)
-      type_loc:          Location.t }
+      mutable type_desc: type_declaration_desc } (* mutable to support the open exn type *)
 
 and type_declaration_desc =
   | Type_abstract
@@ -40,6 +39,7 @@ val new_typ: typ_desc -> typ
 val new_generic_typ: typ_desc -> typ
 val new_var: unit -> typ
 val new_global_var: unit -> typ
+val new_generic_var: unit -> typ
 
 type typ_level
 

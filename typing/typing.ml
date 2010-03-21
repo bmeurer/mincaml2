@@ -5,20 +5,21 @@ open Types
 
 
 type error =
-  | Constructor_arity_mismatch of Ident.t * int * int * Location.t
-  | Cyclic_abbreviation of Ident.t * Location.t
-  | Duplicate_constructor of string * Location.t
-  | Duplicate_pattern_variable of string * Location.t
-  | Duplicate_type_constructor of string * Location.t
-  | Duplicate_type_param of string * Location.t
-  | Expression_type_mismatch of (typ * typ) list * Location.t
-  | Pattern_variable_missing of Ident.t * Location.t
-  | Pattern_type_mismatch of (typ * typ) list * Location.t
-  | Type_arity_mismatch of Ident.t * int * int * Location.t
-  | Unbound_type_constructor of string * Location.t
-  | Unbound_type_variable of string * Location.t
+  | Constructor_arity_mismatch of Ident.t * int * int
+  | Cyclic_abbreviation of Ident.t
+  | Duplicate_constructor of string
+  | Duplicate_pattern_variable of string
+  | Duplicate_type_constructor of string
+  | Duplicate_type_param of string
+  | Expression_type_mismatch of (typ * typ) list
+  | Pattern_variable_missing of Ident.t
+  | Pattern_type_mismatch of (typ * typ) list
+  | Type_arity_mismatch of Ident.t * int * int
+  | Unbound_type_constructor of string
+  | Unbound_type_variable of string
+  | Unbound_value of string
 
-exception Error of error
+exception Error of error * Location.t
 
 
 (*********************)
@@ -129,7 +130,7 @@ let bind_translated_type_vars loc param_names =
         []
     | name :: names ->
         if List.mem name names then
-          raise (Error(Duplicate_type_param(name, loc)));
+          raise (Error(Duplicate_type_param(name), loc));
         let tau = new_global_var () in
           translated_type_vars := (name, tau) :: !translated_type_vars;
           tau :: bind_translated_type_vars_aux names
@@ -152,7 +153,7 @@ let rec translate_type policy gamma ptau =
                 translated_type_vars := (name, tau) :: !translated_type_vars;
                 tau
           | Not_found ->
-              raise (Error(Unbound_type_variable(name, ptau.ptyp_loc)))
+              raise (Error(Unbound_type_variable(name), ptau.ptyp_loc))
         end
     | Ptyp_arrow(ptau1, ptau2) ->
         new_typ (Tarrow(translate_type policy gamma ptau1, translate_type policy gamma ptau2))
@@ -164,12 +165,12 @@ let rec translate_type policy gamma ptau =
           let taul = translate_type_list policy gamma ptaul in
           let taul_length = List.length taul in
             if taul_length <> decl.type_arity then
-              raise (Error(Type_arity_mismatch(id, decl.type_arity, taul_length, ptau.ptyp_loc)))
+              raise (Error(Type_arity_mismatch(id, decl.type_arity, taul_length), ptau.ptyp_loc))
             else
               new_typ (Tconstruct(id, taul))
         with
           | Not_found ->
-              raise (Error(Unbound_type_constructor(name, ptau.ptyp_loc)))
+              raise (Error(Unbound_type_constructor(name), ptau.ptyp_loc))
         end
 
 (* TODO *)
@@ -186,12 +187,11 @@ let pre_translate_type_decls pnameddecls =
           accu
       | (name, pdecl) :: pnameddecls ->
           if List.mem_assoc name pnameddecls then
-            raise (Error(Duplicate_type_constructor(name, pdecl.ptype_loc)));
+            raise (Error(Duplicate_type_constructor(name), pdecl.ptype_loc));
           let ident = Ident.create name in
           let decl = { type_params = [];
                        type_arity = List.length pdecl.ptype_params;
-                       type_desc = Type_abstract;
-                       type_loc = pdecl.ptype_loc } in
+                       type_desc = Type_abstract } in
             pre_translate_type_decls_aux pnameddecls ((ident, decl) :: accu)
   in pre_translate_type_decls_aux pnameddecls []
 
@@ -203,7 +203,7 @@ let rec translate_type_variants pre_gamma = function
   | (name, ptaul, loc) :: pvariants ->
       let variants = translate_type_variants pre_gamma pvariants in
         if List.exists (fun (id, _) -> Ident.name id = name) variants then
-          raise (Error(Duplicate_constructor(name, loc)));
+          raise (Error(Duplicate_constructor(name), loc));
         (Ident.create name, translate_type_list Strict pre_gamma ptaul) :: variants
 
 (* Translate a single type declaration using the pre-environment pre_gamma. The returnd
@@ -229,8 +229,7 @@ let translate_type_decl pre_gamma pdecl =
         List.iter generalize type_params;
         { type_params = type_params;
           type_arity = List.length type_params;
-          type_desc = type_desc;
-          type_loc = pdecl.ptype_loc }
+          type_desc = type_desc }
     with
       | exn ->
           leave_typ_level level;
@@ -240,8 +239,8 @@ let translate_type_decl pre_gamma pdecl =
    All references to unknown qualified identifiers are assumed to be non-cyclic. Cycles within
    variants are permitted (actually the only way to introduce recursive types), but cycles through
    abbreviations must be rejected, otherwise unify may not terminate. *)
-let check_abbrev_decls iddecls =
-  let rec check_abbrev_decl id decl =
+let check_abbrev_decls iddecls pnameddecls =
+  let rec check_abbrev_decl loc id decl =
     let rec check_abbrev_typ tau =
       match tau.typ_desc with
         | Tvar(_) ->
@@ -254,15 +253,15 @@ let check_abbrev_decls iddecls =
             try
               let _, decl' = List.find (fun (id, _) -> Ident.equal id id') iddecls in
                 if decl' == decl then
-                  raise (Error(Cyclic_abbreviation(id, decl.type_loc)))
+                  raise (Error(Cyclic_abbreviation(id), loc))
                 else
-                  check_abbrev_decl id decl'
+                  check_abbrev_decl loc id decl'
             with
               | Not_found -> () (* reference to unknown type decl, assumed to be non-cyclic *)
     in match decl.type_desc with
       | Type_abbrev(tau) -> check_abbrev_typ tau
       | _ -> ()
-  in List.iter (fun (id, decl) -> check_abbrev_decl id decl) iddecls
+  in List.iter2 (fun (id, decl) (_, pdecl) -> check_abbrev_decl pdecl.ptype_loc id decl) iddecls pnameddecls
   
 (* Translate a list of (name, parsed decl) pairs into a list of (ident, type decl) pairs.
    This does all the nasty work, including the cyclic abbreviation checks necessary to
@@ -277,7 +276,7 @@ let translate_type_decls gamma pnameddecls =
                    pre_iddecls
                    (List.rev pnameddecls)) in
     (* Check for cyclic abbreviations *)
-    check_abbrev_decls iddecls;
+    check_abbrev_decls iddecls pnameddecls;
     iddecls
 
 
@@ -309,7 +308,7 @@ struct
               let id, rho' = add_aux rho' in
                 id, entry' :: rho'
             else
-              raise (Error(Duplicate_pattern_variable(name, loc)))
+              raise (Error(Duplicate_pattern_variable(name), loc))
     in add_aux rho
 
   (* Check if the environments rho1 and rho2 match on the names
@@ -327,13 +326,13 @@ struct
                   unify gamma tau2 tau1;
                   unify_aux rho1 rho2 ((id2, id1) :: accu)
                 with
-                  | Unify_error(taupl) -> raise (Error(Pattern_type_mismatch(taupl, loc2)))
+                  | Unify_error(taupl) -> raise (Error(Pattern_type_mismatch(taupl), loc2))
               else
                 let id, loc = if c < 0 then id1, loc1 else id2, loc2 in
-                  raise (Error(Pattern_variable_missing(id, loc)))
+                  raise (Error(Pattern_variable_missing(id), loc))
         | (id, _, loc) :: _, _
         | _, (id, _, loc) :: _ ->
-            raise (Error(Pattern_variable_missing(id, loc)))
+            raise (Error(Pattern_variable_missing(id), loc))
     in unify_aux rho1 rho2 []
 
   (* Merge the pattern environment rho into the type environment
@@ -406,7 +405,7 @@ let rec type_pat gamma ppat rho =
                              [ppat]) in
           let ppatl_length = List.length ppatl in
             if ppatl_length <> cstr.cstr_arity then
-              raise (Error(Constructor_arity_mismatch(id, cstr.cstr_arity, ppatl_length, ppat.ppat_loc)));
+              raise (Error(Constructor_arity_mismatch(id, cstr.cstr_arity, ppatl_length), ppat.ppat_loc));
             let taul, tau = instantiate_cstr cstr in
             let patl, rho = solve_pat_list gamma ppatl taul rho in
               { pat_desc = Tpat_construct(id, patl);
@@ -414,7 +413,7 @@ let rec type_pat gamma ppat rho =
                 pat_tau = tau;
                 pat_gamma = gamma }, rho
         with
-          | Not_found -> raise (Error(Unbound_type_constructor(name, ppat.ppat_loc)))
+          | Not_found -> raise (Error(Unbound_type_constructor(name), ppat.ppat_loc))
         end
     | Ppat_or(ppat1, ppat2) ->
         let pat1, rho1 = type_pat gamma ppat1 rho in
@@ -443,7 +442,7 @@ and solve_pat gamma ppat tau rho =
       pat, rho
   with
     | Unify_error(taupl) ->
-        raise (Error(Pattern_type_mismatch(taupl, ppat.ppat_loc)))
+        raise (Error(Pattern_type_mismatch(taupl), ppat.ppat_loc))
 
 and solve_pat_list gamma ppatl taul rho =
   try
@@ -466,11 +465,15 @@ and type_exp gamma pexp =
           exp_tau = type_constant c;
           exp_gamma = gamma }
     | Pexp_ident(name) ->
-        let id, value = Typeenv.find_value name gamma in
-          { exp_desc = Texp_ident(id, value);
-            exp_loc = pexp.pexp_loc;
-            exp_tau = instantiate value.val_tau;
-            exp_gamma = gamma }
+        begin try
+          let id, value = Typeenv.find_value name gamma in
+            { exp_desc = Texp_ident(id, value);
+              exp_loc = pexp.pexp_loc;
+              exp_tau = instantiate value.val_tau;
+              exp_gamma = gamma }
+        with
+          | Not_found -> raise (Error(Unbound_value(name), pexp.pexp_loc))
+        end
     | Pexp_let(rec_flag, pcases, pexp') ->
         let gamma', cases = type_let gamma rec_flag pcases in
         let exp = type_exp gamma' pexp' in
@@ -525,7 +528,7 @@ and type_exp gamma pexp =
                          | Some(pexp) -> [pexp]) in
           let pexpl_length = List.length pexpl in
             if pexpl_length <> cstr.cstr_arity then
-              raise (Error(Constructor_arity_mismatch(id, cstr.cstr_arity, pexpl_length, pexp.pexp_loc)));
+              raise (Error(Constructor_arity_mismatch(id, cstr.cstr_arity, pexpl_length), pexp.pexp_loc));
             let taul, tau = instantiate_cstr cstr in
             let expl = solve_exp_list gamma pexpl taul in
               { exp_desc = Texp_construct(id, expl);
@@ -533,7 +536,7 @@ and type_exp gamma pexp =
                 exp_tau = tau;
                 exp_gamma = gamma }
         with 
-          | Not_found -> raise (Error(Unbound_type_constructor(name, pexp.pexp_loc)))
+          | Not_found -> raise (Error(Unbound_type_constructor(name), pexp.pexp_loc))
         end
     | Pexp_ifthenelse(pexp0, pexp1, pexp2) ->
         let exp0 = solve_exp gamma pexp0 (instantiate Typeenv.type_bool) in
@@ -576,7 +579,7 @@ and solve_exp gamma pexp tau =
       exp
   with
     | Unify_error(taupl) ->
-        raise (Error(Expression_type_mismatch(taupl, pexp.pexp_loc)))
+        raise (Error(Expression_type_mismatch(taupl), pexp.pexp_loc))
 
 and solve_exp_list gamma pexpl taul =
   try
