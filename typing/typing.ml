@@ -5,7 +5,11 @@ open Types
 
 
 type error =
+  | Cyclic_abbreviation of Ident.t * Location.t
+  | Duplicate_constructor of string * Location.t
   | Duplicate_pattern_variable of string * Location.t
+  | Duplicate_type_constructor of string * Location.t
+  | Duplicate_type_param of string * Location.t
   | Expression_type_mismatch of (typ * typ) list * Location.t
   | Pattern_variable_missing of Ident.t * Location.t
   | Pattern_type_mismatch of (typ * typ) list * Location.t
@@ -103,19 +107,36 @@ let rec unify gamma tau1 tau2 =
               raise (Unify_error((tau1, tau2) :: taupl))
 
 
-(********************************)
-(*** Translating parsed types ***)
-(********************************)
+(******************************************************)
+(*** Translating parsed types and type declarations ***)
+(******************************************************)
 
 let translated_type_vars = ref ([] : (string * typ) list)
 
+(* Clear the list of translated type variables. *)
 let clear_translated_type_vars () =
   translated_type_vars := []
+
+(* Bind type variables to all param_names. Make sure each type parameter name
+   is unique. *)
+let bind_translated_type_vars loc param_names =
+  clear_translated_type_vars ();
+  let rec bind_translated_type_vars_aux = function
+    | [] ->
+        []
+    | name :: names ->
+        if List.mem name names then
+          raise (Error(Duplicate_type_param(name, loc)));
+        let tau = new_global_var () in
+          translated_type_vars := (name, tau) :: !translated_type_vars;
+          tau :: bind_translated_type_vars_aux names
+  in bind_translated_type_vars_aux param_names
 
 type policy =
   | Strict     (* fail on unknown type variable *)
   | Extensible (* add new type variables as they appear *)
 
+(* TODO *)
 let rec translate_type policy gamma ptau =
   match ptau.ptyp_desc with
     | Ptyp_var(name) ->
@@ -135,8 +156,122 @@ let rec translate_type policy gamma ptau =
     | Ptyp_tuple(ptaul) ->
         new_typ (Ttuple(List.map (translate_type policy gamma) ptaul))
     | Ptyp_construct(name, ptaul) ->
-        (* TODO *)
-        assert false
+        begin try
+          let ident, decl = Typeenv.find_type name gamma in
+          let taul = List.map (translate_type policy gamma) ptaul in
+          let taul_length = List.length taul in
+            if taul_length <> decl.type_arity then
+              raise (Error(Type_arity_mismatch(name, decl.type_arity, taul_length, ptau.ptyp_loc)))
+            else
+              new_typ (Tconstruct(ident, taul))
+        with
+          | Not_found ->
+              raise (Error(Unbound_type_constructor(name, ptau.ptyp_loc)))
+        end
+
+(* Translate a list of (name, parsed decl) pairs into a list of (ident, typed decl)
+   triples with the typed decls set to Type_abstract. Ensures that type constructor
+   names are unique. The list is returned in reverse order (tail-recursive) *)
+let pre_translate_type_decls pnameddecls =
+  let rec pre_translate_type_decls_aux pnameddecls accu =
+    match pnameddecls with
+      | [] ->
+          accu
+      | (name, pdecl) :: pnameddecls ->
+          if List.mem_assoc name pnameddecls then
+            raise (Error(Duplicate_type_constructor(name, pdecl.ptype_loc)));
+          let ident = Ident.create name in
+          let decl = { type_params = [];
+                       type_arity = List.length pdecl.ptype_params;
+                       type_desc = Type_abstract;
+                       type_loc = pdecl.ptype_loc } in
+            pre_translate_type_decls_aux pnameddecls ((ident, decl) :: accu)
+  in pre_translate_type_decls_aux pnameddecls []
+
+(* Translate a list of parsed type variants into a list of type variants. Ensure
+   that each constructor name is unique within the list of constructor names. *)
+let rec translate_type_variants pre_gamma = function
+  | [] ->
+      []
+  | (name, ptaul, loc) :: pvariants ->
+      let variants = translate_type_variants pre_gamma pvariants in
+        if List.mem_assoc name variants then
+          raise (Error(Duplicate_constructor(name, loc)));
+        (name, List.map (translate_type Strict pre_gamma) ptaul) :: variants
+
+(* Translate a single type declaration using the pre-environment pre_gamma. The returnd
+   type declaration is generalized using the type parameters in pdecl. *)
+let translate_type_decl pre_gamma pdecl =
+  let level = enter_typ_level () in
+    try
+      let type_params = bind_translated_type_vars pdecl.ptype_loc pdecl.ptype_params in
+      let type_desc = (match pdecl.ptype_desc with
+                         | Ptype_abstract ->
+                             leave_typ_level level;
+                             Type_abstract
+                         | Ptype_abbrev(ptau) ->
+                             let tau = translate_type Strict pre_gamma ptau in
+                               leave_typ_level level;
+                               generalize tau;
+                               Type_abbrev(tau)
+                         | Ptype_variant(pvariants) ->
+                             let variants = translate_type_variants pre_gamma pvariants in
+                               leave_typ_level level;
+                               List.iter (fun (_, taul) -> List.iter generalize taul) variants;
+                               Type_variant(variants)) in
+        List.iter generalize type_params;
+        { type_params = type_params;
+          type_arity = List.length type_params;
+          type_desc = type_desc;
+          type_loc = pdecl.ptype_loc }
+    with
+      | exn ->
+          leave_typ_level level;
+          raise exn
+
+(* Check for cyclic abbreviations in the list of (qualified identifier, type declaration) pairs.
+   All references to unknown qualified identifiers are assumed to be non-cyclic. Cycles within
+   variants are permitted (actually the only way to introduce recursive types), but cycles through
+   abbreviations must be rejected, otherwise unify may not terminate. *)
+let check_abbrev_decls iddecls =
+  let rec check_abbrev_decl id decl =
+    let rec check_abbrev_typ tau =
+      match tau.typ_desc with
+        | Tvar(_) ->
+            ()
+        | Tarrow(tau1, tau2) ->
+            check_abbrev_typ tau1; check_abbrev_typ tau2
+        | Ttuple(taul) ->
+            List.iter check_abbrev_typ taul
+        | Tconstruct(id', taul) ->
+            try
+              let _, decl' = List.find (fun (id, _) -> Ident.equal id id') iddecls in
+                if decl' == decl then
+                  raise (Error(Cyclic_abbreviation(id, decl.type_loc)))
+                else
+                  check_abbrev_decl id decl'
+            with
+              | Not_found -> () (* reference to unknown type decl, assumed to be non-cyclic *)
+    in match decl.type_desc with
+      | Type_abbrev(tau) -> check_abbrev_typ tau
+      | _ -> ()
+  in List.iter (fun (id, decl) -> check_abbrev_decl id decl) iddecls
+  
+(* Translate a list of (name, parsed decl) pairs into a list of (ident, type decl) pairs.
+   This does all the nasty work, including the cyclic abbreviation checks necessary to
+   ensure that unify will terminate. *)
+let translate_type_decls gamma pnameddecls =
+  let pre_iddecls = pre_translate_type_decls pnameddecls in
+  let pre_gamma = Typeenv.add_types pre_iddecls gamma in
+  (* Really translate the decls now, using rev_map2 because pre_translate_type_decls returns
+     the list in reverse order. *)
+  let iddecls = (List.rev_map2
+                   (fun (ident, _) (_, pdecl) -> ident, translate_type_decl pre_gamma pdecl)
+                   pre_iddecls
+                   (List.rev pnameddecls)) in
+    (* Check for cyclic abbreviations *)
+    check_abbrev_decls iddecls;
+    iddecls
 
 
 (****************************)
@@ -395,27 +530,25 @@ and solve_cases gamma pcases tau tau' =
     cases, Partial
 
 and type_let gamma rec_flag pcases =
-  let gamma', cases =
-    (try
-       increase_typ_level ();
-       let patl, rho = type_pat_list gamma (List.map fst pcases) PatternEnv.empty in
-       let gamma' = PatternEnv.merge gamma rho in
-       let gamma1 = (match rec_flag with
-                       | Recursive -> gamma'
-                       | NonRecursive -> gamma) in
-       let cases = (List.map2
-                      (fun pat (_, pexp) -> pat, solve_exp gamma1 pexp pat.pat_tau)
-                      patl
-                      pcases) in
-         decrease_typ_level ();
-         gamma', cases
-     with
-       | exn ->
-           decrease_typ_level ();
-           raise exn) in
-    List.iter (fun (pat, exp) -> if not (is_value exp) then nongeneralize pat.pat_tau) cases;
-    List.iter (fun (pat, exp) -> generalize pat.pat_tau) cases;
-    gamma', cases
+  let level = enter_typ_level () in
+    try
+      let patl, rho = type_pat_list gamma (List.map fst pcases) PatternEnv.empty in
+      let gamma' = PatternEnv.merge gamma rho in
+      let gamma1 = (match rec_flag with
+                      | Recursive -> gamma'
+                      | NonRecursive -> gamma) in
+      let cases = (List.map2
+                     (fun pat (_, pexp) -> pat, solve_exp gamma1 pexp pat.pat_tau)
+                     patl
+                     pcases) in
+        leave_typ_level level;
+        List.iter (fun (pat, exp) -> if not (is_value exp) then nongeneralize pat.pat_tau) cases;
+        List.iter (fun (pat, exp) -> generalize pat.pat_tau) cases;
+        gamma', cases
+    with
+      | exn ->
+          leave_typ_level level;
+          raise exn
 
 and type_structure_item gamma pstr =
   clear_translated_type_vars ();
@@ -430,17 +563,21 @@ and type_structure_item gamma pstr =
           { str_desc = Tstr_let(rec_flag, cases);
             str_loc = pstr.pstr_loc;
             str_gamma = gamma }, gamma'
-    | Pstr_typ(_) ->
-        (* TODO *)
-        assert false
+    | Pstr_typ(pnameddecls) ->
+        let iddecls = translate_type_decls gamma pnameddecls in
+          { str_desc = Tstr_typ(iddecls);
+            str_loc = pstr.pstr_loc;
+            str_gamma = gamma }, Typeenv.add_types iddecls gamma
     | Pstr_exn(_) ->
         (* TODO *)
         assert false
 
 and type_structure gamma pstrl =
-  match pstrl with
-    | [] ->
-        []
-    | pstr :: pstrl ->
-        let str, gamma = type_structure_item gamma pstr in
-          str :: type_structure gamma pstrl
+  let rec type_structure_aux gamma pstrl accu =
+    match pstrl with
+      | [] ->
+          []
+      | pstr :: pstrl ->
+          let str, gamma = type_structure_item gamma pstr in
+            type_structure_aux gamma pstrl (str :: accu)
+  in List.rev (type_structure_aux gamma pstrl [])

@@ -11,7 +11,8 @@ and typ_desc =
 type type_declaration =
     { type_params: typ list;
       type_arity:  int;
-      type_desc:   type_declaration_desc }
+      type_desc:   type_declaration_desc;
+      type_loc:    Location.t }
 
 and type_declaration_desc =
   | Type_abstract
@@ -39,8 +40,10 @@ val new_generic_typ: typ_desc -> typ
 val new_var: unit -> typ
 val new_global_var: unit -> typ
 
-val increase_typ_level: unit -> unit
-val decrease_typ_level: unit -> unit
+type typ_level
+
+val enter_typ_level: unit -> typ_level
+val leave_typ_level: typ_level -> unit
 
 val repr: typ -> typ
 

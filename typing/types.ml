@@ -11,7 +11,8 @@ and typ_desc =
 type type_declaration =
     { type_params: typ list;
       type_arity:  int;
-      type_desc:   type_declaration_desc }
+      type_desc:   type_declaration_desc;
+      type_loc:    Location.t }
 
 and type_declaration_desc =
   | Type_abstract
@@ -50,8 +51,15 @@ let new_global_typ desc = new_typ_with_level desc global_level
 let new_var () = new_typ (Tvar(ref None))
 let new_global_var () = new_global_typ (Tvar(ref None))
 
-let increase_typ_level () = incr current_level
-let decrease_typ_level () = decr current_level
+type typ_level = int
+
+let enter_typ_level () =
+  let level = !current_level in
+    current_level := level + 1;
+    level
+
+let leave_typ_level level =
+  current_level := level
 
 
 (************)
@@ -166,7 +174,7 @@ let bind tau1 tau2 =
     | Tvar({ contents = None } as alpha1) -> alpha1 := Some(tau2)
     | _ -> invalid_arg "Types.bind"
 
-(* Expand abbreviations *)
+(* Expand abbreviations, raise Invalid_argument("Types.expand") if decl is not an abbreviation. *)
 let expand decl taul =
   match decl.type_desc with
     | Type_abbrev(abbrev) ->

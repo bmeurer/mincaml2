@@ -62,6 +62,9 @@ let add_type id decl gamma =
     { gamma with
         types = IdentMap.add id decl gamma.types;
         types_mapping = StringMap.add name id gamma.types_mapping }
+
+let add_types iddecls gamma =
+  List.fold_left (fun gamma (id, decl) -> add_type id decl gamma) gamma iddecls
       
 let add_value id value gamma =
   let name = Ident.name id in

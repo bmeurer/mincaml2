@@ -27,4 +27,5 @@ val find_value: string -> t -> Ident.t * value_description
 
 (* Insertion by qualified identifier *)
 val add_type: Ident.t -> type_declaration -> t -> t
+val add_types: (Ident.t * type_declaration) list -> t -> t
 val add_value: Ident.t -> value_description -> t -> t
