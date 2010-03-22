@@ -46,11 +46,9 @@ let report_error ppf = function
   | Duplicate_type_parameter(name) ->
       fprintf ppf "The type parameter '%s occurs several times" name
   | Expression_type_mismatch(taul) ->
-      let provided, expected = List.hd taul in
-        fprintf ppf
-          "@[This expression has type %a,@ \
-           but an expression was expected of type %a@]"
-          print_typ provided print_typ expected
+      Printtyp.report_unification_error ppf taul
+        "This expression has type"
+        "but an expression was expected of type"
   | External_identifier_not_a_function(name) ->
       fprintf ppf "External identifier %s must be a function" name
   | Invalid_primitive_declaration(name) ->
@@ -58,11 +56,9 @@ let report_error ppf = function
   | Pattern_variable_missing(name) ->
       fprintf ppf "Variable %s must occur on both sides of this | pattern" name
   | Pattern_type_mismatch(taul) ->
-      let provided, expected = List.hd taul in
-        fprintf ppf
-          "@[This pattern has type %a,@ \
-           but a pattern was expected of type %a@]"
-          print_typ provided print_typ expected
+      Printtyp.report_unification_error ppf taul
+        "This pattern has type"
+        "but a pattern was expected of type"
   | Type_arity_mismatch(name, expected, provided) ->
       fprintf ppf
         "@[The type constructor %s expects %i argument(s),@ \

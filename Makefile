@@ -21,6 +21,8 @@ SOURCES=			\
 	typing/typedast.mli	\
 	typing/typeenv.ml	\
 	typing/typeenv.mli	\
+	typing/printtyp.ml	\
+	typing/printtyp.mli	\
 	typing/typing.ml	\
 	typing/typing.mli	\
 	toplevel.ml

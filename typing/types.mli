@@ -57,4 +57,3 @@ val instantiate_cstr: constructor_description -> typ list * typ
 
 val expand: type_declaration -> typ list -> typ
 
-val print_typ: Format.formatter -> typ -> unit

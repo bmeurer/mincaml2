@@ -1,5 +1,3 @@
-open Format
-
 type typ =
     { typ_desc: typ_desc;
       mutable typ_level: int }
@@ -205,70 +203,3 @@ let expand decl taul =
     | _ ->
         invalid_arg "Types.expand"
 
-
-(*************************)
-(*** Printing of types ***)
-(*************************)
-
-let print_typ_vars_counter = ref 0
-and print_typ_vars_names = ref []
-
-let print_typ_vars_reset () =
-  print_typ_vars_counter := 0;
-  print_typ_vars_names := []
-
-let print_typ_var ppf tau =
-  let name = (try
-                List.assoc tau !print_typ_vars_names
-              with
-                | Not_found ->
-                    let i = !print_typ_vars_counter in
-                    let name = (if i < 26 then
-                                  String.make 1 (char_of_int (i + 97))
-                                else
-                                  String.make 1 (char_of_int ((i mod 26) + 97)) ^ string_of_int (i / 26)) in
-                    let name = (if tau.typ_level == generic_level then name else "_" ^ name) in
-                      print_typ_vars_names := (tau, name) :: !print_typ_vars_names;
-                      print_typ_vars_counter := i + 1;
-                      name) in
-    fprintf ppf "'%s" name
-
-let print_typ ppf tau =
-  let rec print_typ_list prio sep = function
-    | [] ->
-        ()
-    | [tau] ->
-        print_typ_aux prio tau
-    | tau :: taul ->
-        print_typ_aux prio tau;
-        fprintf ppf "%s" sep;
-        print_typ_list prio sep taul
-  and print_typ_aux prio tau =
-    let tau = repr tau in
-      match tau.typ_desc with
-        | Tvar(_) ->
-            print_typ_var ppf tau
-        | Tarrow(tau1, tau2) ->
-            if prio >= 1 then fprintf ppf "(";
-            print_typ_aux 1 tau1;
-            fprintf ppf " -> ";
-            print_typ_aux 0 tau2;
-            if prio >= 1 then fprintf ppf ")";
-        | Ttuple(taul) ->
-            if prio >= 2 then fprintf ppf "(";
-            print_typ_list 2 " * " taul;
-            if prio >= 2 then fprintf ppf ")"
-        | Tconstruct(id, taul) ->
-            begin match taul with
-              | [] ->
-                  ()
-              | [tau] ->
-                  print_typ_aux 2 tau;
-                  fprintf ppf " "
-              | taul ->
-                  fprintf ppf "(";
-                  print_typ_list 0 ", " taul;
-                  fprintf ppf ") "
-            end;
-            fprintf ppf "%s" (Ident.name id)
-  in print_typ_aux 0 tau
