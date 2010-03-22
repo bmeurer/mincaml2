@@ -5,6 +5,7 @@ type error =
   | Illegal_escape of char * Location.t
   | Literal_overflow of string * Location.t
   | Unclosed of Location.t * string * Location.t * string
+  | Unknown of Location.t
   | Unterminated_comment of Location.t
   | Unterminated_string of Location.t
   | Unterminated_string_in_comment of Location.t
@@ -26,6 +27,9 @@ let report_error ppf = function
         Location.print_error closing_loc closing;
       fprintf ppf "%aThis '%s' might be unmatched"
         Location.print_error opening_loc opening
+  | Unknown(loc) ->
+      fprintf ppf "%aSyntax error"
+        Location.print_error loc
   | Unterminated_comment(loc) ->
       fprintf ppf "%aUnterminated comment"
         Location.print_error loc

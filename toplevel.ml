@@ -1,9 +1,6 @@
-let parse lexbuf =
-  Parser.structure Lexer.token lexbuf;;
-
 let pstr =
   begin try
-    parse (Lexing.from_channel (open_in "test.ml"))
+    Parse.file "test.ml" Parse.structure
   with
     | Syntaxerr.Error(error) ->
         Syntaxerr.report_error Format.err_formatter error;

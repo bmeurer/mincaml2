@@ -9,6 +9,8 @@ SOURCES=			\
 	parsing/parser.mli	\
 	parsing/lexer.ml	\
 	parsing/lexer.mli	\
+	parsing/parse.ml	\
+	parsing/parse.mli	\
 	typing/ident.ml		\
 	typing/ident.mli	\
 	typing/primitive.ml	\

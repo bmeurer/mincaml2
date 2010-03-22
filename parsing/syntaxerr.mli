@@ -3,6 +3,7 @@ type error =
   | Illegal_escape of char * Location.t
   | Literal_overflow of string * Location.t
   | Unclosed of Location.t * string * Location.t * string
+  | Unknown of Location.t
   | Unterminated_comment of Location.t
   | Unterminated_string of Location.t
   | Unterminated_string_in_comment of Location.t
