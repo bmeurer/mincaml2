@@ -50,6 +50,7 @@ and structure_item_desc =
   | Tstr_let of rec_flag * (pattern * expression) list
   | Tstr_typ of (Ident.t * type_declaration) list
   | Tstr_exn of Ident.t * exn_declaration
+  | Tstr_external of Ident.t * value_description
 
 and structure =
     structure_item list

@@ -33,6 +33,7 @@ and value_description =
 
 and value_kind =
   | Val_regular
+  | Val_primitive of Primitive.description
 
 
 val new_typ: typ_desc -> typ
@@ -47,6 +48,7 @@ val enter_typ_level: unit -> typ_level
 val leave_typ_level: typ_level -> unit
 
 val repr: typ -> typ
+val arity: typ -> int
 
 val nongeneralize: typ -> unit
 val generalize: typ -> unit

@@ -17,6 +17,8 @@ type error =
   | Duplicate_type_constructor of string
   | Duplicate_type_parameter of string
   | Expression_type_mismatch of (typ * typ) list
+  | External_identifier_not_a_function of string
+  | Invalid_primitive_declaration of string
   | Pattern_variable_missing of string
   | Pattern_type_mismatch of (typ * typ) list
   | Type_arity_mismatch of string * int * int
@@ -49,10 +51,18 @@ let report_error ppf = function
           "@[This expression has type %a,@ \
            but an expression was expected of type %a@]"
           print_typ provided print_typ expected
+  | External_identifier_not_a_function(name) ->
+      fprintf ppf "External identifier %s must be a function" name
+  | Invalid_primitive_declaration(name) ->
+      fprintf ppf "Invalid declaration of external %s" name
   | Pattern_variable_missing(name) ->
       fprintf ppf "Variable %s must occur on both sides of this | pattern" name
-  | Pattern_type_mismatch(_) ->
-      fprintf ppf "Type mismatch"
+  | Pattern_type_mismatch(taul) ->
+      let provided, expected = List.hd taul in
+        fprintf ppf
+          "@[This pattern has type %a,@ \
+           but a pattern was expected of type %a@]"
+          print_typ provided print_typ expected
   | Type_arity_mismatch(name, expected, provided) ->
       fprintf ppf
         "@[The type constructor %s expects %i argument(s),@ \
@@ -222,6 +232,20 @@ let rec translate_type policy gamma ptau =
 (* TODO *)
 and translate_type_list policy gamma ptaul =
   List.map (translate_type policy gamma) ptaul
+
+(* TODO *)
+let translate_type_scheme gamma ptau =
+  let level = enter_typ_level () in
+    try
+      clear_translated_type_vars ();
+      let tau = translate_type Extensible gamma ptau in
+        leave_typ_level level;
+        generalize tau;
+        tau
+    with
+      | exn ->
+          leave_typ_level level;
+          raise exn
 
 (* Translate a list of (name, parsed decl) pairs into a list of (ident, typed decl)
    triples with the typed decls set to Type_abstract. Ensures that type constructor
@@ -689,6 +713,27 @@ and type_structure_item gamma pstr =
           { str_desc = Tstr_exn(id, taul);
             str_loc = pstr.pstr_loc;
             str_gamma = gamma }, Typeenv.add_exn id taul gamma
+    | Pstr_external(name, ptau, pdecl) ->
+        begin try
+          let tau = translate_type_scheme gamma ptau in
+          let value = (match pdecl with
+                         | [] ->
+                             { val_kind = Val_regular;
+                               val_tau = tau }
+                         | pdecl ->
+                             let arity = Types.arity tau in
+                               if arity = 0 then
+                                 raise (Error(External_identifier_not_a_function(name), pstr.pstr_loc));
+                               { val_kind = Val_primitive(Primitive.parse_declaration arity pdecl);
+                                 val_tau = tau }) in
+          let id = Ident.create name in
+            { str_desc = Tstr_external(id, value);
+              str_loc = pstr.pstr_loc;
+              str_gamma = gamma }, Typeenv.add_value id value gamma
+        with
+          | Invalid_argument("Primitive.parse_declaration") ->
+              raise (Error(Invalid_primitive_declaration(name), pstr.pstr_loc))
+        end
 
 and type_structure gamma pstrl =
   let rec type_structure_aux gamma pstrl accu =

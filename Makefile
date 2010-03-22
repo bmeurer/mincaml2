@@ -15,6 +15,8 @@ SOURCES=			\
 	parsing/lexer.mli	\
 	typing/ident.ml		\
 	typing/ident.mli	\
+	typing/primitive.ml	\
+	typing/primitive.mli	\
 	typing/types.ml		\
 	typing/types.mli	\
 	typing/typedast.ml	\

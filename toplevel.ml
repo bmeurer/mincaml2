@@ -1,7 +1,15 @@
 let parse lexbuf =
   Parser.structure Lexer.token lexbuf;;
 
-let pstr = parse (Lexing.from_channel (open_in "test.ml"));;
+let pstr =
+  begin try
+    parse (Lexing.from_channel (open_in "test.ml"))
+  with
+    | Syntaxerr.Error(error) ->
+        Syntaxerr.report_error Format.err_formatter error;
+        Format.fprintf Format.err_formatter "@.";
+        exit 2
+  end;;
 
 let tstr =
   begin try

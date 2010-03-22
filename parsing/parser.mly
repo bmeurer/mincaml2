@@ -50,6 +50,7 @@
 %token EOF
 %token EQUAL
 %token EXCEPTION
+%token EXTERNAL
 %token FALSE
 %token <string> FLOAT
 %token FUN
@@ -159,6 +160,8 @@ structure_item:
     { mkstr (Pstr_typ(List.rev $2)) }
 | EXCEPTION UPPERCASEIDENT constructor_arguments
     { mkstr (Pstr_exn($2, $3)) }
+| EXTERNAL value_ident COLON typ EQUAL primitive_declaration
+    { mkstr (Pstr_external($2, $4, List.rev $6)) }
 ;
 
 
@@ -414,6 +417,16 @@ constructor_arguments:
 ;
 
 
+/* Primitive declarations */
+
+primitive_declaration:
+| STRING
+    { [$1] }
+| primitive_declaration STRING
+   { $2 :: $1 }
+;
+
+
 /* Types */
 
 typ:
@@ -507,6 +520,10 @@ operator:
 | BARBAR     { "||" }
 | COLONEQUAL { ":=" }
 | EQUAL      { "=" }
+| PLUS       { "+" }
+| MINUS      { "-" }
+| MINUSDOT   { "-." }
+| STAR       { "*" }
 | INFIXOP0   { $1 }
 | INFIXOP1   { $1 }
 | INFIXOP2   { $1 }

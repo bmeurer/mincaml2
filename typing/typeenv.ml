@@ -206,24 +206,4 @@ let initial =
                    ident_not_found, [];
                    ident_division_by_zero, []
                  ]) in
-  let gamma = (List.fold_left
-                 (fun gamma (name, tau) ->
-                    add_value (Ident.create name) { val_kind = Val_regular; val_tau = tau } gamma)
-                 gamma
-                 [
-                   ("=", let tau = new_generic_var () in type_arrow tau (type_arrow tau type_bool));
-                   ("<>", let tau = new_generic_var () in type_arrow tau (type_arrow tau type_bool));
-                   ("<=", let tau = new_generic_var () in type_arrow tau (type_arrow tau type_bool));
-                   ("<", let tau = new_generic_var () in type_arrow tau (type_arrow tau type_bool));
-                   (">", let tau = new_generic_var () in type_arrow tau (type_arrow tau type_bool));
-                   (">=", let tau = new_generic_var () in type_arrow tau (type_arrow tau type_bool));
-                   ("==", let tau = new_generic_var () in type_arrow tau (type_arrow tau type_bool));
-                   ("!=", let tau = new_generic_var () in type_arrow tau (type_arrow tau type_bool));
-                   ("+", type_arrow type_int (type_arrow type_int type_int));
-                   ("-", type_arrow type_int (type_arrow type_int type_int));
-                   ("*", type_arrow type_int (type_arrow type_int type_int));
-                   ("+.", type_arrow type_float (type_arrow type_float type_float));
-                   ("-.", type_arrow type_float (type_arrow type_float type_float));
-                   ("*.", type_arrow type_float (type_arrow type_float type_float));
-                 ]) in
     gamma

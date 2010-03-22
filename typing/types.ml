@@ -35,6 +35,7 @@ and value_description =
 
 and value_kind =
   | Val_regular
+  | Val_primitive of Primitive.description
 
 
 (*****************************)
@@ -75,6 +76,12 @@ let rec repr tau =
     | Tvar({ contents = Some(tau) } as alpha) -> let tau = repr tau in alpha := Some(tau); tau
     | _ -> tau
 
+(* Determine the arity of the given type (wrt. curried functions) *)
+let rec arity tau =
+  let tau = repr tau in
+    match tau.typ_desc with
+      | Tarrow(_, tau2) -> 1 + arity tau2
+      | _ -> 0
 
 (************************************)
 (*** Generalization/Instantiation ***)

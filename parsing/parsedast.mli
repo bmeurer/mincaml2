@@ -65,6 +65,7 @@ and structure_item_desc =
   | Pstr_let of rec_flag * (pattern * expression) list
   | Pstr_typ of (string * type_declaration) list
   | Pstr_exn of string * exn_declaration
+  | Pstr_external of string * typ * string list
 
 and structure =
     structure_item list

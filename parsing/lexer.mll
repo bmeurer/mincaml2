@@ -13,6 +13,7 @@
       "else", ELSE;
       "end", END;
       "exception", EXCEPTION;
+      "external", EXTERNAL;
       "false", FALSE;
       "fun", FUN;
       "function", FUNCTION;
@@ -183,7 +184,7 @@ rule token = parse
       { INFIXOP1(Lexing.lexeme lexbuf) }
   | "+" | "+."
       { INFIXOP2(Lexing.lexeme lexbuf) }
-  | "*" | "*."
+  | "*" | "*." | "/" | "/."
       { INFIXOP3(Lexing.lexeme lexbuf) }
   | '('
       { LPAREN }
@@ -224,11 +225,12 @@ and comment = parse
   | "\""
       { Buffer.clear string_buffer;
         string_start_loc := Location.curr lexbuf;
-        (try
+        begin try
            string lexbuf
          with
            | Error(Unterminated_string(loc)) ->
-               raise (Error(Unterminated_string_in_comment(loc, List.hd (!comment_start_loc)))));
+               raise (Error(Unterminated_string_in_comment(loc)))
+        end;
         comment lexbuf }
   | "''"
       { comment lexbuf }

@@ -8,6 +8,8 @@ type error =
   | Duplicate_type_constructor of string
   | Duplicate_type_parameter of string
   | Expression_type_mismatch of (typ * typ) list
+  | External_identifier_not_a_function of string
+  | Invalid_primitive_declaration of string
   | Pattern_variable_missing of string
   | Pattern_type_mismatch of (typ * typ) list
   | Type_arity_mismatch of string * int * int
