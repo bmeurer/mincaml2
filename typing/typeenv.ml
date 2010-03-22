@@ -1,7 +1,7 @@
 open Types
 
-module IdentMap = Rbmap.Make(Ident)
-module StringMap = Rbmap.Make(String)
+module IdentMap = Map.Make(Ident)
+module StringMap = Map.Make(String)
 
 (* Qualified identifiers for predefined types *)
 let ident_int = Ident.create "int"

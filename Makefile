@@ -1,8 +1,4 @@
 SOURCES=			\
-	utils/rbmap.ml		\
-	utils/rbmap.mli		\
-	utils/rbset.ml		\
-	utils/rbset.mli		\
 	parsing/astcommon.mli	\
 	parsing/location.ml	\
 	parsing/location.mli	\
@@ -30,7 +26,7 @@ SOURCES=			\
 OBJECTS=$(patsubst %.ml,%.cmo,$(patsubst %.mli,%.cmi,$(SOURCES))) \
 	$(patsubst %.ml,%.cmx,$(patsubst %.mli,%.cmi,$(SOURCES)))
 
-OCAMLCOMMONFLAGS=-I parsing -I typing -I utils
+OCAMLCOMMONFLAGS=-I parsing -I typing
 OCAMLC=ocamlc.opt
 OCAMLCFLAGS=$(OCAMLCOMMONFLAGS) -g
 OCAMLDEP=ocamldep.opt
@@ -64,6 +60,7 @@ clean::
 	rm -f $(OBJECTS)
 	rm -f .depend
 	rm -f parsing/lexer.ml parsing/parser.ml parsing/parser.mli
+	rm -f toplevel
 
 .depend: Makefile $(SOURCES)
 	$(OCAMLDEP) $(OCAMLDEPFLAGS) $(SOURCES) > $@
