@@ -16,15 +16,15 @@ and pattern_desc =
   | Tpat_construct of Ident.t * pattern list
   | Tpat_or of pattern * pattern
 
+and partial =
+  | Partial
+  | Total
+
 and expression =
     { exp_desc:  expression_desc;
       exp_loc:   Location.t;
       exp_tau:   typ;
       exp_gamma: Typeenv.t }
-
-and partial =
-  | Partial
-  | Total
 
 and expression_desc =
   | Texp_constant of constant

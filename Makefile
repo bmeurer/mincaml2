@@ -1,36 +1,39 @@
-SOURCES=			\
-	parsing/astcommon.mli	\
-	parsing/location.ml	\
-	parsing/location.mli	\
-	parsing/parsedast.mli	\
-	parsing/syntaxerr.ml	\
-	parsing/syntaxerr.mli	\
-	parsing/parser.ml	\
-	parsing/parser.mli	\
-	parsing/lexer.ml	\
-	parsing/lexer.mli	\
-	parsing/parse.ml	\
-	parsing/parse.mli	\
-	typing/ident.ml		\
-	typing/ident.mli	\
-	typing/primitive.ml	\
-	typing/primitive.mli	\
-	typing/types.ml		\
-	typing/types.mli	\
-	typing/typedast.ml	\
-	typing/typedast.mli	\
-	typing/typeenv.ml	\
-	typing/typeenv.mli	\
-	typing/printtyp.ml	\
-	typing/printtyp.mli	\
-	typing/typing.ml	\
-	typing/typing.mli	\
+SOURCES=				\
+	parsing/astcommon.mli		\
+	parsing/location.ml		\
+	parsing/location.mli		\
+	parsing/parsedast.mli		\
+	parsing/syntaxerr.ml		\
+	parsing/syntaxerr.mli		\
+	parsing/parser.ml		\
+	parsing/parser.mli		\
+	parsing/lexer.ml		\
+	parsing/lexer.mli		\
+	parsing/parse.ml		\
+	parsing/parse.mli		\
+	typing/ident.ml			\
+	typing/ident.mli		\
+	typing/primitive.ml		\
+	typing/primitive.mli		\
+	typing/types.ml			\
+	typing/types.mli		\
+	typing/typedast.ml		\
+	typing/typedast.mli		\
+	typing/typeenv.ml		\
+	typing/typeenv.mli		\
+	typing/printtyp.ml		\
+	typing/printtyp.mli		\
+	typing/typing.ml		\
+	typing/typing.mli		\
+	intermediate/lambda.ml		\
+	intermediate/lambda.mli		\
+	intermediate/translate.ml	\
 	toplevel.ml
 
 OBJECTS=$(patsubst %.ml,%.cmo,$(patsubst %.mli,%.cmi,$(SOURCES))) \
 	$(patsubst %.ml,%.cmx,$(patsubst %.mli,%.cmi,$(SOURCES)))
 
-OCAMLCOMMONFLAGS=-I parsing -I typing
+OCAMLCOMMONFLAGS=-I intermediate -I parsing -I typing
 OCAMLC=ocamlc.opt
 OCAMLCFLAGS=$(OCAMLCOMMONFLAGS) -g
 OCAMLDEP=ocamldep.opt
