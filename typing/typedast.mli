@@ -9,7 +9,7 @@ type pattern =
 
 and pattern_desc =
   | Tpat_any
-  | Tpat_var of Ident.t
+  | Tpat_ident of Ident.t
   | Tpat_alias of pattern * Ident.t
   | Tpat_constant of constant
   | Tpat_tuple of pattern list

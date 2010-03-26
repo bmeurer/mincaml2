@@ -16,7 +16,7 @@ type pattern =
 
 and pattern_desc =
   | Ppat_any
-  | Ppat_var of string
+  | Ppat_ident of string
   | Ppat_alias of pattern * string
   | Ppat_constant of constant
   | Ppat_tuple of pattern list

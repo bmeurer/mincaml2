@@ -275,7 +275,7 @@ let_bindings:
 
 let_binding:
 | value_ident fun_binding
-    { {ppat_desc = Ppat_var($1); ppat_loc = rhs_loc 1}, $2 }
+    { {ppat_desc = Ppat_ident($1); ppat_loc = rhs_loc 1}, $2 }
 | pattern EQUAL seq_expr
     { $1, $3 }
 ;
@@ -335,7 +335,7 @@ pattern_comma_list:
 
 simple_pattern:
 | value_ident %prec below_EQUAL
-    { mkpat (Ppat_var($1)) }
+    { mkpat (Ppat_ident($1)) }
 | UNDERSCORE
     { mkpat (Ppat_any) }
 | signed_constant

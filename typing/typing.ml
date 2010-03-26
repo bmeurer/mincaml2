@@ -432,10 +432,10 @@ let rec type_pat gamma ppat rho =
           pat_loc = ppat.ppat_loc;
           pat_tau = new_var ();
           pat_gamma = gamma }, rho
-    | Ppat_var(name) ->
+    | Ppat_ident(name) ->
         let tau = new_var () in
         let id, rho = PatternEnv.add name tau ppat.ppat_loc rho in
-          { pat_desc = Tpat_var(id);
+          { pat_desc = Tpat_ident(id);
             pat_loc = ppat.ppat_loc;
             pat_tau = tau;
             pat_gamma = gamma }, rho

@@ -9,7 +9,7 @@ type pattern =
 
 and pattern_desc =
   | Tpat_any
-  | Tpat_var of Ident.t
+  | Tpat_ident of Ident.t
   | Tpat_alias of pattern * Ident.t
   | Tpat_constant of constant
   | Tpat_tuple of pattern list
@@ -59,7 +59,7 @@ and structure =
 let rec pattern_map_idents f pat =
   match pat.pat_desc with
     | Tpat_any -> pat
-    | Tpat_var(id) -> { pat with pat_desc = Tpat_var(f id) }
+    | Tpat_ident(id) -> { pat with pat_desc = Tpat_ident(f id) }
     | Tpat_alias(pat', id) -> { pat with pat_desc = Tpat_alias(pattern_map_idents f pat', f id) }
     | Tpat_constant(_) -> pat
     | Tpat_tuple(patl) -> { pat with pat_desc = Tpat_tuple(List.map (pattern_map_idents f) patl) }
