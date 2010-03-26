@@ -47,16 +47,26 @@ and type_arrow tau1 tau2 = new_generic_typ (Tarrow(tau1, tau2))
 (****************************************************)
 
 let constructors_of_variants cstr_type variants =
-  let rec constructors_of_variants_aux cstr_tag = function
-    | [] ->
-        []
-    | (cstr_id, cstr_args) :: variants ->
-        let cstr = { cstr_type = cstr_type;
-                     cstr_args = cstr_args;
-                     cstr_arity = List.length cstr_args;
-                     cstr_tag = cstr_tag } in
-          (cstr_id, cstr) :: constructors_of_variants_aux (cstr_tag + 1) variants
-  in constructors_of_variants_aux 0 variants
+  let cstr_consts = ref 0 and cstr_blocks = ref 0 in
+    (* TODO - check block constructor limit *)
+    List.iter (function (_, []) -> incr cstr_consts | _ -> incr cstr_blocks) variants;
+    let rec constructors_of_variants_aux const_tag block_tag = function
+      | [] ->
+          []
+      | (cstr_name, cstr_args) :: variants ->
+          let cstr_tag, variants = (match cstr_args with
+                                      | [] -> (Cstr_constant const_tag,
+                                               constructors_of_variants_aux (const_tag + 1) block_tag variants)
+                                      | _ -> (Cstr_block block_tag,
+                                              constructors_of_variants_aux const_tag (block_tag + 1) variants)) in
+          let cstr = { cstr_type = cstr_type;
+                       cstr_args = cstr_args;
+                       cstr_arity = List.length cstr_args;
+                       cstr_tag = cstr_tag;
+                       cstr_consts = !cstr_consts;
+                       cstr_blocks = !cstr_blocks } in
+            (cstr_name, cstr) :: variants
+    in constructors_of_variants_aux 0 0 variants
 
 let constructors_of_decl id decl =
   match decl.type_desc with
@@ -70,23 +80,18 @@ let constructors_of_decl id decl =
 (*********************************)
 
 type t =
-    { cstrs:          constructor_description IdentMap.t;
-      cstrs_mapping:  Ident.t StringMap.t;
+    { cstrs:          constructor_description StringMap.t;
       types:          type_declaration IdentMap.t;
       types_mapping:  Ident.t StringMap.t;
       values:         value_description IdentMap.t;
       values_mapping: Ident.t StringMap.t }
 
 let empty =
-  { cstrs = IdentMap.empty;
-    cstrs_mapping = StringMap.empty;
+  { cstrs = StringMap.empty;
     types = IdentMap.empty;
     types_mapping = StringMap.empty;
     values = IdentMap.empty; 
     values_mapping = StringMap.empty }
-
-let lookup_cstr id gamma =
-  IdentMap.find id gamma.cstrs
 
 let lookup_type id gamma =
   IdentMap.find id gamma.types
@@ -95,8 +100,7 @@ let lookup_value id gamma =
   IdentMap.find id gamma.values
 
 let find_cstr name gamma =
-  let id = StringMap.find name gamma.cstrs_mapping in
-    id, lookup_cstr id gamma
+  StringMap.find name gamma.cstrs
 
 let find_type name gamma = 
   let id = StringMap.find name gamma.types_mapping in
@@ -106,30 +110,22 @@ let find_value name gamma =
   let id = StringMap.find name gamma.values_mapping in
     id, lookup_value id gamma
 
-let add_cstr id cstr gamma =
-  let name = Ident.name id in
+let add_cstr name cstr gamma =
     { gamma with
-        cstrs = IdentMap.add id cstr gamma.cstrs;
-        cstrs_mapping = StringMap.add name id gamma.cstrs_mapping }
+        cstrs = StringMap.add name cstr gamma.cstrs }
 
 let add_exn id taul gamma =
-  (* figure out the exn type decl and its variants *)
-  let exn_decl = lookup_type ident_exn gamma in
-  let exn_variants = (match exn_decl.type_desc with Type_variant(variants) -> variants | _ -> assert false) in
-  (* create the new exception constructor *)
   let cstr = { cstr_type = instantiate type_exn;
                cstr_args = taul;
                cstr_arity = List.length taul;
-               cstr_tag = List.length exn_variants } in
-    (* add the new exception to the exn variant, this way each
-       and every gamma will have the full exn variant *)
-    exn_decl.type_desc <- Type_variant((id, taul) :: exn_variants);
-    (* add the new exception constructor *)
-    add_cstr id cstr gamma
+               cstr_tag = Cstr_exception(id);
+               cstr_consts = -1;
+               cstr_blocks = -1 } in
+    add_cstr (Ident.name id) cstr gamma
 
 let add_type id decl gamma =
   let gamma = (List.fold_left
-                 (fun gamma (id, cstr) -> add_cstr id cstr gamma)
+                 (fun gamma (name, cstr) -> add_cstr name cstr gamma)
                  gamma
                  (constructors_of_decl id decl)) in
   let name = Ident.name id in
@@ -158,24 +154,21 @@ let initial =
   and decl_bool =
     { type_params = [];
       type_arity = 0;
-      type_desc = Type_variant([Ident.create "false", [];
-                                Ident.create "true", []]) }
+      type_desc = Type_variant(["false", []; "true", []]) }
   and decl_unit =
     { type_params = [];
       type_arity = 0;
-      type_desc = Type_variant([Ident.create "()", []]) }
+      type_desc = Type_variant(["()", []]) }
   and decl_list =
     let tau = new_generic_var () in
       { type_params = [tau];
         type_arity = 1;
-        type_desc = Type_variant([Ident.create "[]", [];
-                                  Ident.create "::", [tau; type_list tau]]) }
+        type_desc = Type_variant(["[]", []; "::", [tau; type_list tau]]) }
   and decl_option =
     let tau = new_generic_var () in
       { type_params = [tau];
         type_arity = 1;
-        type_desc = Type_variant([Ident.create "None", [];
-                                  Ident.create "Some", [tau]]) } in
+        type_desc = Type_variant(["None", []; "Some", [tau]]) } in
   let gamma = empty in
   let gamma = (List.fold_left
                  (fun gamma (id, decl) -> add_type id decl gamma)

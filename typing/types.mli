@@ -9,23 +9,30 @@ and typ_desc =
   | Tconstruct of Ident.t * typ list
 
 type type_declaration =
-    { type_params:       typ list;
-      type_arity:        int;
-      mutable type_desc: type_declaration_desc } (* mutable to support the open exn type *)
+    { type_params: typ list;
+      type_arity:  int;
+      type_desc:   type_declaration_desc } (* mutable to support the open exn type *)
 
 and type_declaration_desc =
   | Type_abstract
   | Type_abbrev of typ
-  | Type_variant of (Ident.t * typ list) list
+  | Type_variant of (string * typ list) list
 
 and exn_declaration =
     typ list
 
 and constructor_description =
-    { cstr_type:  typ;
-      cstr_args:  typ list;
-      cstr_arity: int;
-      cstr_tag:   int }
+    { cstr_type:   typ;
+      cstr_args:   typ list;
+      cstr_arity:  int;
+      cstr_tag:    constructor_tag;
+      cstr_consts: int;
+      cstr_blocks: int }
+
+and constructor_tag =
+  | Cstr_constant of int
+  | Cstr_block of int
+  | Cstr_exception of Ident.t
 
 and value_description =
     { val_kind: value_kind;

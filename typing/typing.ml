@@ -268,9 +268,9 @@ let rec translate_type_variants pre_gamma = function
       []
   | (name, ptaul, loc) :: pvariants ->
       let variants = translate_type_variants pre_gamma pvariants in
-        if List.exists (fun (id, _) -> Ident.name id = name) variants then
+        if List.mem_assoc name variants then
           raise (Error(Duplicate_constructor(name), loc));
-        (Ident.create name, translate_type_list Strict pre_gamma ptaul) :: variants
+        (name, translate_type_list Strict pre_gamma ptaul) :: variants
 
 (* Translate a single type declaration using the pre-environment pre_gamma. The returnd
    type declaration is generalized using the type parameters in pdecl. *)
@@ -459,7 +459,7 @@ let rec type_pat gamma ppat rho =
             pat_gamma = gamma }, rho
     | Ppat_construct(name, ppat') ->
         begin try
-          let id, cstr = Typeenv.find_cstr name gamma in
+          let cstr = Typeenv.find_cstr name gamma in
           let ppatl = (match ppat' with
                          | None ->
                              []
@@ -474,7 +474,7 @@ let rec type_pat gamma ppat rho =
               raise (Error(Constructor_arity_mismatch(name, cstr.cstr_arity, ppatl_length), ppat.ppat_loc));
             let taul, tau = instantiate_cstr cstr in
             let patl, rho = solve_pat_list gamma ppatl taul rho in
-              { pat_desc = Tpat_construct(id, patl);
+              { pat_desc = Tpat_construct(cstr, patl);
                 pat_loc = ppat.ppat_loc;
                 pat_tau = tau;
                 pat_gamma = gamma }, rho
@@ -587,7 +587,7 @@ and type_exp gamma pexp =
             exp_gamma = gamma }
     | Pexp_construct(name, pexp') ->
         begin try
-          let id, cstr = Typeenv.find_cstr name gamma in
+          let cstr = Typeenv.find_cstr name gamma in
           let pexpl = (match pexp' with
                          | None -> []
                          | Some({ pexp_desc = Pexp_tuple(pexpl) }) when cstr.cstr_arity > 1 -> pexpl
@@ -597,7 +597,7 @@ and type_exp gamma pexp =
               raise (Error(Constructor_arity_mismatch(name, cstr.cstr_arity, pexpl_length), pexp.pexp_loc));
             let taul, tau = instantiate_cstr cstr in
             let expl = solve_exp_list gamma pexpl taul in
-              { exp_desc = Texp_construct(id, expl);
+              { exp_desc = Texp_construct(cstr, expl);
                 exp_loc = pexp.pexp_loc;
                 exp_tau = tau;
                 exp_gamma = gamma }
