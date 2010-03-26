@@ -1,4 +1,6 @@
 SOURCES=				\
+	utils/listUtils.ml		\
+	utils/listUtils.mli		\
 	parsing/astcommon.mli		\
 	parsing/location.ml		\
 	parsing/location.mli		\
@@ -33,7 +35,7 @@ SOURCES=				\
 OBJECTS=$(patsubst %.ml,%.cmo,$(patsubst %.mli,%.cmi,$(SOURCES))) \
 	$(patsubst %.ml,%.cmx,$(patsubst %.mli,%.cmi,$(SOURCES)))
 
-OCAMLCOMMONFLAGS=-I intermediate -I parsing -I typing
+OCAMLCOMMONFLAGS=-I intermediate -I parsing -I typing -I utils
 OCAMLC=ocamlc.opt
 OCAMLCFLAGS=$(OCAMLCOMMONFLAGS) -g
 OCAMLDEP=ocamldep.opt
