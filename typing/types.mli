@@ -11,7 +11,7 @@ and typ_desc =
 type type_declaration =
     { type_params: typ list;
       type_arity:  int;
-      type_desc:   type_declaration_desc } (* mutable to support the open exn type *)
+      type_desc:   type_declaration_desc } 
 
 and type_declaration_desc =
   | Type_abstract
