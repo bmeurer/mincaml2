@@ -3,7 +3,7 @@ let swap n l =
     match n, l with
       | 0, x :: l -> x :: (List.rev_append accu l)
       | n, x :: l -> swap_aux (n - 1) l (x :: accu)
-      | _ -> invalid_arg "ListUtils.swap"
+      | _ -> failwith "ListUtils.swap"
   in
     if n < 0 then
       invalid_arg "ListUtils.swap"
