@@ -29,6 +29,7 @@ SOURCES=				\
 	typing/typing.mli		\
 	intermediate/lambda.ml		\
 	intermediate/lambda.mli		\
+	intermediate/patcomp.ml		\
 	intermediate/translate.ml	\
 	toplevel.ml
 

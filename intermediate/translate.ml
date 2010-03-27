@@ -16,7 +16,7 @@ let rec translate_prim_applied prim lambdal =
 let rec translate_exp exp =
   match exp.exp_desc with
     | Texp_constant(constant) ->
-        Lconst(Const_base(constant))
+        Lconst(Sconst_base(constant))
     | Texp_ident(id, { val_kind = Val_regular }) ->
         (* TODO - globals? *)
         Lident(id)
