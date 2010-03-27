@@ -1,3 +1,29 @@
+let init n f =
+  let rec init_aux n =
+    if n = 0 then
+      []
+    else
+      let n = n - 1 in
+        f n :: init_aux n
+  in
+    if n < 0 then
+      invalid_arg "ListUtils.init"
+    else
+      init_aux n
+
+let rev_init n f =
+  let rec rev_init_aux n accu =
+    if n = 0 then
+      accu
+    else
+      let n = n - 1 in
+        rev_init_aux n (f n :: accu)
+  in
+    if n < 0 then
+      invalid_arg "ListUtils.rev_init"
+    else
+      rev_init_aux n []
+
 let make n x =
   let rec make_aux accu = function
     | 0 -> accu

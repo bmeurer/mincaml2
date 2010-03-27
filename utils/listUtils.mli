@@ -1,3 +1,9 @@
+(** TODO *)
+val init: int -> (int -> 'a) -> 'a list
+
+(** TODO *)
+val rev_init: int -> (int -> 'a) -> 'a list
+
 (** [ListUtils.make n x] creates a new list which contains the value [x] [n] times.
     Raise [Invalid_argument "ListUtils.make"] if [n] is negative. *)
 val make: int -> 'a -> 'a list
