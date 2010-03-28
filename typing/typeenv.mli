@@ -1,5 +1,19 @@
 open Types
 
+(* Qualified identifiers for predefined types *)
+val ident_int: Ident.t
+val ident_char: Ident.t
+val ident_float: Ident.t
+val ident_int32: Ident.t
+val ident_int64: Ident.t
+val ident_string: Ident.t
+val ident_nativeint: Ident.t
+val ident_exn: Ident.t
+val ident_unit: Ident.t
+val ident_bool: Ident.t
+val ident_list: Ident.t
+val ident_option: Ident.t
+
 (* Predefined types *)
 val type_int: typ
 val type_char: typ
