@@ -1,4 +1,6 @@
 SOURCES=				\
+	utils/hashtblUtils.ml		\
+	utils/hashtblUtils.mli		\
 	utils/listUtils.ml		\
 	utils/listUtils.mli		\
 	parsing/astcommon.mli		\
