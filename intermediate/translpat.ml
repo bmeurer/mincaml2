@@ -123,15 +123,15 @@ let rec compile matching =
             Lstaticcatch(lambda1, lambda2), total2
 
     (* Case 5: Column 0 starts with tuple pattern *)
-    | Matching(({ pat_desc = Tpat_tuple(patl') } :: _, _) :: _ as clausel, id0 :: idl) ->
+    | Matching(({ pat_desc = Tpat_tuple(patl') } :: _, _) :: _ as clausel, id0 :: idl1) ->
         let lid0 = Lident(id0) in
+        let id0il = ListUtils.rev_init (List.length patl') (fun i -> Ident.create_tmp i, i) in
         let clausel' = expand_tuple clausel in
-        let idil = ListUtils.rev_init (List.length patl') (fun i -> Ident.create_tmp i, i) in
-        let lambda, total = compile (Matching(clausel', (List.rev_map fst idil) @ idl)) in
+        let lambda, total = compile (Matching(clausel', (List.rev_map fst id0il) @ idl1)) in
           (List.fold_left
              (fun lambda (id, i) -> Llet(id, Lprim(Pgetfield(i), [lid0]), lambda))
              lambda
-             idil), total
+             id0il), total
 
     (* Case 6: Column 0 starts with a constant pattern *)
     | Matching(({ pat_desc = Tpat_constant(_) } :: _, _) :: _ as clausel, (id0 :: idl1 as idl)) ->
@@ -155,10 +155,10 @@ let rec compile matching =
     (* Case 7: Column 0 starts with an exception constructor pattern *)
     | Matching(({ pat_desc = Tpat_construct({ cstr_tag = Cstr_exception(id) }, patl') } :: patl, lambda) :: clausel, (id0 :: idl1 as idl)) ->
         let lid0 = Lident(id0) in
+        let id0il = ListUtils.rev_init (List.length patl') (fun i -> Ident.create_tmp i, i) in
         let clausel1, clausel2 = partition_exception id clausel in
         let clausel1 = (patl' @ patl, lambda) :: clausel1 in
-        let id0il = ListUtils.rev_init (List.length patl') (fun i -> Ident.create_tmp i, i) in
-        let lambda1, total1 = compile (Matching(clausel1, (List.rev_map fst id0il) @ idl)) in
+        let lambda1, total1 = compile (Matching(clausel1, (List.rev_map fst id0il) @ idl1)) in
         let lambda2, total2 = compile (Matching(clausel2, idl)) in
         let lambda1 = (List.fold_left
                          (fun lambda (id, i) -> Llet(id, Lprim(Pgetfield(i + 1), [lid0]), lambda))
