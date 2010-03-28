@@ -1,4 +1,6 @@
 open Lambda
+open Primitive
+open Translprim
 open Typedast
 open Types
 
@@ -41,16 +43,13 @@ let rec expand_tuple = function
   | _ ->
       assert false
 
-let rec partition_constants = function
-  | ({ pat_desc = Tpat_constant(c) } :: patl, lambda) :: clausel ->
-      let constl, clausel = partition_constants clausel in
-        (begin try
-           let case = List.assoc c constl in
-             case := (patl, lambda) :: !case;
-             constl
-         with
-           | Not_found -> (c, ref [patl, lambda]) :: constl
-         end), clausel
+let rec partition_constant c = function
+  | ({ pat_desc = Tpat_constant(c') } :: patl, lambda as clause) :: clausel ->
+      let clausel1, clausel2 = partition_constant c clausel in
+        if c = c' then
+          (patl, lambda) :: clausel1, clausel2
+        else
+          clausel1, clause :: clausel2
   | clausel ->
       [], clausel
 
@@ -134,23 +133,29 @@ let rec compile matching =
              id0il), total
 
     (* Case 6: Column 0 starts with a constant pattern *)
-    | Matching(({ pat_desc = Tpat_constant(_) } :: _, _) :: _ as clausel, (id0 :: idl1 as idl)) ->
-        let rec compile_casel = function
-          | [] ->
-              [], true
-          | (c, clauselref) :: casel ->
-              let lambda1, total1 = compile (Matching(!clauselref, idl1)) in
-              let condl2, total2 = compile_casel casel in
-                (c, lambda1) :: condl2, total1 && total2 in
+    | Matching(({ pat_desc = Tpat_constant(c) } as pat :: patl, lambda) :: clausel, (id0 :: idl1 as idl)) ->
         let lid0 = Lident(id0) in
-        let casel1, clausel2 = partition_constants clausel in
-        let condl1, total1 = compile_casel casel1 in
+        let clausel1, clausel2 = partition_constant c clausel in
+        let lambda1, total1 = compile (Matching((patl, lambda) :: clausel1, idl1)) in
         let lambda2, total2 = compile (Matching(clausel2, idl)) in
-        let cond = { cond_numcases = List.length condl1; cond_cases = condl1; cond_default = Lstaticraise } in
+        let exp0id = { exp_desc = Texp_ident(id0, { val_kind = Val_regular; val_tau = pat.pat_tau });
+                       exp_loc = pat.pat_loc;
+                       exp_tau = pat.pat_tau;
+                       exp_gamma = pat.pat_gamma } in
+        let exp0c = { exp_desc = Texp_constant(c);
+                      exp_loc = pat.pat_loc;
+                      exp_tau = pat.pat_tau;
+                      exp_gamma = pat.pat_gamma } in
+        let prim0 = { prim_name = "%equal";
+                      prim_arity = 2;
+                      prim_alloc = false;
+                      prim_native_name = "";
+                      prim_native_float = false } in
+        let lambda0 = Lprim(translate_primitive prim0 [exp0id; exp0c], [lid0; Lconst(Sconst_base(c))]) in
           if total1 then
-            Lcond(lid0, { cond with cond_default = lambda2 }), total2
+            Lifthenelse(lambda0, lambda1, lambda2), total2
           else
-            Lstaticcatch(Lcond(lid0, cond), lambda2), total2
+            Lstaticcatch(Lifthenelse(lambda0, lambda1, Lstaticraise), lambda2), total2
 
     (* Case 7: Column 0 starts with an exception constructor pattern *)
     | Matching(({ pat_desc = Tpat_construct({ cstr_tag = Cstr_exception(id) }, patl') } :: patl, lambda) :: clausel, (id0 :: idl1 as idl)) ->

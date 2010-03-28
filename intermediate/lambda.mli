@@ -5,11 +5,20 @@ type comparison =
   | Clt | Cgt
   | Cle | Cge
 
+and boxed_integer =
+  | Pint32
+  | Pint64
+  | Pnativeint
+
 and primitive =
   (* Miscellaneous *)
   | Pignore
-  (* Boxed object operations *)
+  | Pidentity
+  (* Operations on heap blocks *)
+  | Pmakeblock of int
   | Pgetfield of int
+  (* External call *)
+  | Pextcall of Primitive.description
   (* Integer operations *)
   | Pnegint
   | Paddint | Psubint | Pmulint | Pdivint | Pmodint
@@ -20,28 +29,26 @@ and primitive =
   | Pnegfloat
   | Paddfloat | Psubfloat | Pmulfloat | Pdivfloat
   | Pfloatcmp of comparison
+  (* Boxed integer operations *)
+  | Pbintcmp of boxed_integer * comparison
   
 and structured_constant =
   | Sconst_base of constant
   | Sconst_pointer of int
-  | Sconst_block of int * constant list
+  | Sconst_block of int * structured_constant list
 
 and lambda =
   | Lconst of structured_constant
   | Lident of Ident.t
+  | Lapply of lambda * lambda list
+  | Lfunction of Ident.t list * lambda
   | Llet of Ident.t * lambda * lambda
   | Lprim of primitive * lambda list
-  | Lcond of lambda * lambda_cond
   | Lswitch of lambda * lambda_switch
   | Lstaticraise
   | Lstaticcatch of lambda * lambda
   | Lifthenelse of lambda * lambda * lambda
   | Lsequence of lambda * lambda
-
-and lambda_cond =
-    { cond_numcases: int;
-      cond_cases: (constant * lambda) list;
-      cond_default: lambda }
 
 and lambda_switch =
     { sw_numconsts: int;
