@@ -29,8 +29,10 @@ SOURCES=				\
 	typing/typing.mli		\
 	intermediate/lambda.ml		\
 	intermediate/lambda.mli		\
-	intermediate/patcomp.ml		\
-	intermediate/translate.ml	\
+	intermediate/translpat.ml	\
+	intermediate/translpat.mli	\
+	intermediate/translexp.ml	\
+	intermediate/translexp.mli	\
 	toplevel.ml
 
 OBJECTS=$(patsubst %.ml,%.cmo,$(patsubst %.mli,%.cmi,$(SOURCES))) \

@@ -23,14 +23,14 @@ let rec flatten (Matching(clausel, idl)) =
           pat :: patl, lambda
       | _ ->
           assert false
-  and flatten_clausel idl = function
+  and flatten_clausel = function
     | [] ->
         []
     | ({ pat_desc = Tpat_or(pat1, pat2) } :: patl, lambda) :: clausel ->
-        flatten_clausel idl ((pat1 :: patl, lambda) :: (pat2 :: patl, lambda) :: clausel)
+        flatten_clausel ((pat1 :: patl, lambda) :: (pat2 :: patl, lambda) :: clausel)
     | clause :: clausel ->
-        flatten_clause idl clause :: flatten_clausel idl clausel
-  in Matching(flatten_clausel idl clausel, idl)
+        flatten_clause idl clause :: flatten_clausel clausel
+  in Matching(flatten_clausel clausel, idl)
 
 let rec expand_tuple = function
   | ({ pat_desc = Tpat_tuple(patl') } :: patl, lambda) :: clausel ->
