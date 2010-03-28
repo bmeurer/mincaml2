@@ -80,6 +80,16 @@ let rec partition_constructors = function
   | clausel ->
       [], [], clausel
 
+let rec partition_exception id = function
+  | ({ pat_desc = Tpat_construct({ cstr_tag = Cstr_exception(id') }, patl') } :: patl, lambda as clause) :: clausel ->
+      let clausel1, clausel2 = partition_exception id clausel in
+        if id = id' then
+          (patl' @ patl, lambda) :: clausel1, clausel2
+        else
+          clausel1, clause :: clausel2
+  | clausel ->
+      [], clausel
+
 let rec partition_wildcard = function
   | ({ pat_desc = Tpat_any } :: patl, lambda) :: clausel ->
       let clausel1, clausel2 = partition_wildcard clausel in
@@ -116,7 +126,7 @@ let rec compile matching =
     | Matching(({ pat_desc = Tpat_tuple(patl') } :: _, _) :: _ as clausel, id0 :: idl) ->
         let lid0 = Lident(id0) in
         let clausel' = expand_tuple clausel in
-        let idil = ListUtils.rev_init (List.length patl') (fun i -> Ident.create ("t" ^ (string_of_int i)), i) in
+        let idil = ListUtils.rev_init (List.length patl') (fun i -> Ident.create_tmp i, i) in
         let lambda, total = compile (Matching(clausel', (List.rev_map fst idil) @ idl)) in
           (List.fold_left
              (fun lambda (id, i) -> Llet(id, Lprim(Pgetfield(i), [lid0]), lambda))
@@ -143,8 +153,22 @@ let rec compile matching =
             Lstaticcatch(Lcond(lid0, cond), lambda2), total2
 
     (* Case 7: Column 0 starts with an exception constructor pattern *)
-    | Matching(({ pat_desc = Tpat_construct({ cstr_tag = Cstr_exception(_) }, _) } :: _, _) :: _, _) ->
-        assert false
+    | Matching(({ pat_desc = Tpat_construct({ cstr_tag = Cstr_exception(id) }, patl') } :: patl, lambda) :: clausel, (id0 :: idl1 as idl)) ->
+        let lid0 = Lident(id0) in
+        let clausel1, clausel2 = partition_exception id clausel in
+        let clausel1 = (patl' @ patl, lambda) :: clausel1 in
+        let id0il = ListUtils.rev_init (List.length patl') (fun i -> Ident.create_tmp i, i) in
+        let lambda1, total1 = compile (Matching(clausel1, (List.rev_map fst id0il) @ idl)) in
+        let lambda2, total2 = compile (Matching(clausel2, idl)) in
+        let lambda1 = (List.fold_left
+                         (fun lambda (id, i) -> Llet(id, Lprim(Pgetfield(i + 1), [lid0]), lambda))
+                         lambda1
+                         id0il) in
+        let lambda0 = Lprim(Pintcmp(Lambda.Ceq), [Lident(id); Lprim(Pgetfield(0), [lid0])]) in
+          if total1 then
+            Lifthenelse(lambda0, lambda1, lambda2), total2
+          else
+            Lstaticcatch(Lifthenelse(lambda0, lambda1, Lstaticraise), lambda2), total2
 
     (* Case 8: Column 0 starts with a constructor pattern *)
     | Matching(({ pat_desc = Tpat_construct(cstr, _) } :: _, _) :: _ as clausel, (id0 :: idl1 as idl)) ->
@@ -153,7 +177,7 @@ let rec compile matching =
           | [] ->
               [], true
           | ((tag, arity), clauselref) :: casel ->
-              let id0il = ListUtils.rev_init arity (fun i -> Ident.create ("t" ^ (string_of_int i)), i) in
+              let id0il = ListUtils.rev_init arity (fun i -> Ident.create_tmp i, i) in
               let lambda1, total1 = compile (Matching(!clauselref, (List.rev_map fst id0il) @ idl1)) in
               let lambda1 = (List.fold_left
                                (fun lambda (id, i) -> Llet(id, Lprim(Pgetfield(i), [lid0]), lambda))
