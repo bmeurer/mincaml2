@@ -9,6 +9,9 @@ let create name =
     current_stamp := stamp;
     { name = name; stamp = stamp }
 
+let create_tmp i =
+  create ("t" ^ (string_of_int i))
+
 let name id =
   id.name
 
