@@ -40,7 +40,7 @@ OBJECTS=$(patsubst %.ml,%.cmo,$(patsubst %.mli,%.cmi,$(SOURCES))) \
 
 OCAMLCOMMONFLAGS=-I intermediate -I parsing -I typing -I utils
 OCAMLC=ocamlc.opt
-OCAMLCFLAGS=$(OCAMLCOMMONFLAGS) -g
+OCAMLCFLAGS=$(OCAMLCOMMONFLAGS) -g -warn-error A
 OCAMLDEP=ocamldep.opt
 OCAMLDEPFLAGS=$(OCAMLCOMMONFLAGS)
 OCAMLOPT=ocamlopt.opt
