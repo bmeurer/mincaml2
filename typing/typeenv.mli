@@ -14,6 +14,15 @@ val ident_bool: Ident.t
 val ident_list: Ident.t
 val ident_option: Ident.t
 
+(* Qualified identifiers for predefined exceptions *)
+val ident_match_failure: Ident.t
+val ident_out_of_memory: Ident.t
+val ident_stack_overflow: Ident.t
+val ident_invalid_argument: Ident.t
+val ident_failure: Ident.t
+val ident_not_found: Ident.t
+val ident_division_by_zero: Ident.t
+
 (* Predefined types *)
 val type_int: typ
 val type_char: typ

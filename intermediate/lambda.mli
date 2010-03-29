@@ -15,6 +15,7 @@ and primitive =
   (* Miscellaneous *)
   | Pignore
   | Pidentity
+  | Praise
   (* Operations on heap blocks *)
   | Pmakeblock of int
   | Pgetfield of int
@@ -48,10 +49,12 @@ and lambda =
   | Lapply of lambda * lambda list
   | Lfunction of Ident.t list * lambda
   | Llet of Ident.t * lambda * lambda
+  | Lletrec of (Ident.t * lambda) list * lambda
   | Lprim of primitive * lambda list
   | Lswitch of lambda * lambda_switch
   | Lstaticraise
   | Lstaticcatch of lambda * lambda
+  | Ltrywith of lambda * Ident.t * lambda
   | Lifthenelse of lambda * lambda * lambda
   | Lsequence of lambda * lambda
 

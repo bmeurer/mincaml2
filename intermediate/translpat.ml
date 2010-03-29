@@ -37,7 +37,7 @@ let rec flatten (Matching(clausel, idl)) =
 let rec expand_tuple = function
   | ({ pat_desc = Tpat_tuple(patl') } :: patl, lambda) :: clausel ->
       (patl' @ patl, lambda) :: expand_tuple clausel
-  | ({ pat_tau = { typ_desc = Ttuple(taul) } } as pat :: patl, lambda) :: clausel ->
+  | ({ pat_desc = Tpat_any; pat_tau = { typ_desc = Ttuple(taul) } } as pat :: patl, lambda) :: clausel ->
       let patl' = List.rev_map (fun tau -> { pat with pat_desc = Tpat_any; pat_tau = tau }) taul in
         (List.rev_append patl' patl, lambda) :: expand_tuple clausel
   | _ ->
@@ -210,3 +210,70 @@ let rec compile matching =
     (* Should not happen... *)
     | _ ->
         assert false
+
+
+(*********************)
+(*** Miscellaneous ***)
+(*********************)
+
+let rec name_pattern default = function
+  | (pat :: patl, lambda) :: clausel ->
+      begin match pat.pat_desc with
+        | Tpat_ident(id)
+        | Tpat_alias(_, id) -> id
+        | Tpat_or(pat1, pat2) -> name_pattern default ((pat1 :: patl, lambda) :: (pat2 :: patl, lambda) :: clausel)
+        | _ -> name_pattern default clausel
+      end
+  | _ -> Ident.create default
+
+let raise_match_failure loc =
+  let pos = loc.Location.loc_start in
+  let file = pos.Lexing.pos_fname in
+  let line = pos.Lexing.pos_lnum in
+  let char = pos.Lexing.pos_cnum - pos.Lexing.pos_bol in
+    Lprim(Praise,
+          [Lprim(Pmakeblock(0),
+                 [Lident(Typeenv.ident_match_failure);
+                  Lconst(Sconst_block(0,
+                                      [Sconst_base(Const_string(file));
+                                       Sconst_base(Const_int(line));
+                                       Sconst_base(Const_int(char))]))])])
+
+
+(********************)
+(*** Entry points ***)
+(********************)
+
+let rec translate_match failure lambda clausel =
+  match lambda with
+    | Lident(id) ->
+        let lambda, total = compile (Matching(clausel, [id])) in
+          if total then
+            lambda
+          else
+            Lstaticcatch(lambda, failure)
+    | lambda ->
+        let id = name_pattern "t" clausel in
+          Llet(id, lambda, translate_match failure (Lident(id)) clausel)
+
+let translate_match_check_failure loc lambda clausel =
+  translate_match (raise_match_failure loc) lambda clausel
+
+let translate_tupled_match failure lambdal clausel =
+  let rec compile_aux idl = function
+    | [] ->
+        let Matching(clausel, idl) = flatten (Matching(clausel, List.rev idl)) in
+        let lambda, total = compile (Matching(expand_tuple clausel, idl)) in
+          if total then
+            lambda
+          else
+            Lstaticcatch(lambda, failure)
+    | Lident(id) :: lambdal ->
+        compile_aux (id :: idl) lambdal
+    | lambda :: lambdal ->
+        let id = Ident.create "t" in
+          Llet(id, lambda, compile_aux (id :: idl) lambdal)
+  in compile_aux [] lambdal
+
+let translate_tupled_match_check_failure loc lambdal clausel =
+  translate_tupled_match (raise_match_failure loc) lambdal clausel

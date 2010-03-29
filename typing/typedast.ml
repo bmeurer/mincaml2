@@ -61,3 +61,4 @@ let rec pattern_map_idents f pat =
     | Tpat_tuple(patl) -> { pat with pat_desc = Tpat_tuple(List.map (pattern_map_idents f) patl) }
     | Tpat_construct(cstr, patl) -> { pat with pat_desc = Tpat_construct(cstr, List.map (pattern_map_idents f) patl) }
     | Tpat_or(pat1, pat2) -> { pat with pat_desc = Tpat_or(pattern_map_idents f pat1, pattern_map_idents f pat2) }
+

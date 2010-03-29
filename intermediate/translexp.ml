@@ -1,10 +1,29 @@
 open Astcommon
+open Format
 open Lambda
 open Primitive
+open Translpat
 open Typedast
 open Typeenv
 open Types
 open Typing
+
+
+(***********************)
+(*** Error reporting ***)
+(***********************)
+
+type error =
+  | Illegal_letrec_expression
+  | Illegal_letrec_pattern
+
+exception Error of error * Location.t
+
+let report_error ppf = function
+  | Illegal_letrec_expression ->
+      fprintf ppf "This kind of expression is not allowed as right-hand side of `let rec'"
+  | Illegal_letrec_pattern ->
+      fprintf ppf "Only variables are allowed as left-hand side of `let rec'"
 
 
 (*********************)
@@ -16,6 +35,16 @@ exception Not_constant
 let extract_constant = function
   | Lconst(sc) -> sc
   | _ -> raise Not_constant
+
+let rec name_pattern default = function
+  | (pat, exp) :: casel ->
+      begin match pat.pat_desc with
+        | Tpat_ident(id)
+        | Tpat_alias(_, id) -> id
+        | Tpat_or(pat1, pat2) -> name_pattern default ((pat1, exp) :: (pat2, exp) :: casel)
+        | _ -> name_pattern default casel
+      end
+  | _ -> Ident.create default
 
 
 (*********************************)
@@ -77,26 +106,33 @@ let rec translate_exp exp =
     | Texp_constant(c) ->
         Lconst(Sconst_base(c))
     | Texp_ident(id, { val_kind = Val_regular }) ->
-        (* TODO - globals? *)
         Lident(id)
     | Texp_ident(_, { val_kind = Val_primitive(prim) }) ->
         let p = translate_primitive exp.exp_gamma prim exp.exp_tau in
         let idl = ListUtils.init prim.prim_arity Ident.create_tmp in
           Lfunction(idl, Lprim(p, List.map (fun id -> Lident(id)) idl))
-    | Texp_let(NonRecursive, cases, exp) ->
-        assert false (* TODO *)
-    | Texp_let(Recursive, cases, exp) ->
-        assert false (* TODO *)
-    | Texp_function(cases) ->
-        assert false (* TODO *)
+    | Texp_let(NonRecursive, casel, exp) ->
+        translate_let casel exp
+    | Texp_let(Recursive, casel, exp) ->
+        translate_letrec casel exp
+    | Texp_function(casel) ->
+        let id = name_pattern "param" casel in
+        let lambda = translate_match_check_failure exp.exp_loc (Lident(id)) (translate_casel casel) in
+          Lfunction([id], lambda)
     | Texp_apply({ exp_desc = Texp_ident(_, { val_kind = Val_primitive(prim) }) } as exp, expl) when prim.prim_arity = List.length expl ->
         Lprim(translate_primitive exp.exp_gamma prim exp.exp_tau, translate_exp_list expl)
     | Texp_apply(exp, expl) ->
-        assert false (* TODO *)
-    | Texp_match(exp, cases) ->
-        assert false (* TODO *)
-    | Texp_try(exp, cases) ->
-        assert false (* TODO *)
+        Lapply(translate_exp exp, List.map translate_exp expl)
+    | Texp_match({ exp_desc = Texp_tuple(expl) }, casel) ->
+        translate_tupled_match_check_failure exp.exp_loc (translate_exp_list expl) (translate_casel casel)
+    | Texp_match(exp', casel) ->
+        translate_match_check_failure exp.exp_loc (translate_exp exp') (translate_casel casel)
+    | Texp_try(exp', casel) ->
+        let id = name_pattern "exn" casel in
+        let lid = Lident(id) in
+          Ltrywith(translate_exp exp',
+                   id,
+                   translate_match (Lprim(Praise, [lid])) lid (translate_casel casel))
     | Texp_tuple(expl) ->
         let lambdal = translate_exp_list expl in
           begin try
@@ -130,3 +166,26 @@ let rec translate_exp exp =
 and translate_exp_list expl =
   List.map translate_exp expl
 
+and translate_casel casel =
+  List.map (fun (pat, exp) -> [pat], translate_exp exp) casel
+
+and translate_let casel exp =
+  let rec translate_let_aux = function
+    | [] ->
+        translate_exp exp
+    | (pat, exp) :: casel ->
+        translate_match_check_failure pat.pat_loc (translate_exp exp) [[pat], translate_let_aux casel]
+  in translate_let_aux casel
+
+and translate_letrec casel exp =
+  let idexpl = (List.map
+                  (fun (pat, exp) ->
+                     match pat.pat_desc with
+                       | Tpat_ident(id) -> id, exp
+                       | _ -> raise (Error(Illegal_letrec_pattern, pat.pat_loc)))
+                  casel) in
+  let translate_letrec_aux (id, exp) =
+    match translate_exp exp with
+      | Lfunction(_) as lambda -> (id, lambda)
+      | _ -> raise (Error(Illegal_letrec_expression, exp.exp_loc))
+  in Lletrec(List.map translate_letrec_aux idexpl, translate_exp exp)

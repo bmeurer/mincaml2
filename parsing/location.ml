@@ -39,7 +39,8 @@ let init lexbuf fname =
     lexbuf.lex_curr_p <- curr_p
 
 let print ppf loc =
-  let file, line, startchar = loc.loc_start.pos_fname, loc.loc_start.pos_lnum, loc.loc_start.pos_cnum in
+  let file, line = loc.loc_start.pos_fname, loc.loc_start.pos_lnum in
+  let startchar = loc.loc_start.pos_cnum - loc.loc_start.pos_bol in
   let endchar = loc.loc_end.pos_cnum - loc.loc_start.pos_cnum + startchar in
     fprintf ppf "File \"%s\", line %i, characters %i-%i:@." file line startchar endchar
 
