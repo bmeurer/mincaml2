@@ -48,7 +48,6 @@ and type_arrow tau1 tau2 = new_generic_typ (Tarrow(tau1, tau2))
 
 let constructors_of_variants cstr_type variants =
   let cstr_consts = ref 0 and cstr_blocks = ref 0 in
-    (* TODO - check block constructor limit *)
     List.iter (function (_, []) -> incr cstr_consts | _ -> incr cstr_blocks) variants;
     let rec constructors_of_variants_aux const_tag block_tag = function
       | [] ->

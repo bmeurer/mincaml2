@@ -21,6 +21,7 @@ type error =
   | Invalid_primitive_declaration of string
   | Pattern_variable_missing of string
   | Pattern_type_mismatch of (typ * typ) list
+  | Too_many_constructors
   | Type_arity_mismatch of string * int * int
   | Unbound_constructor of string
   | Unbound_type_constructor of string
@@ -59,6 +60,8 @@ let report_error ppf = function
       Printtyp.report_unification_error ppf taul
         "This pattern has type"
         "but a pattern was expected of type"
+  | Too_many_constructors ->
+      fprintf ppf "Too many non-constant constructors"
   | Type_arity_mismatch(name, expected, provided) ->
       fprintf ppf
         "@[The type constructor %s expects %i argument(s),@ \
@@ -296,6 +299,11 @@ let translate_type_decl pre_gamma pdecl =
                                generalize tau;
                                Type_abbrev(tau)
                          | Ptype_variant(pvariants) ->
+                             (* we do only support up to 245 non-constant constructors, similar
+                              * to Caml Light; this is because we store the constructor tag in
+                              * 8bit and also include a few reserved tags (i.e. strings, etc.). *)
+                             if List.length (List.filter (fun (_, ptaul, _) -> ptaul <> []) pvariants) > 245 then
+                               raise (Error(Too_many_constructors, pdecl.ptype_loc));
                              let variants = translate_type_variants pre_gamma pvariants in
                                leave_typ_level level;
                                List.iter (fun (_, taul) -> List.iter generalize taul) variants;

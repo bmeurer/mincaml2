@@ -12,6 +12,7 @@ type error =
   | Invalid_primitive_declaration of string
   | Pattern_variable_missing of string
   | Pattern_type_mismatch of (typ * typ) list
+  | Too_many_constructors
   | Type_arity_mismatch of string * int * int
   | Unbound_constructor of string
   | Unbound_type_constructor of string
