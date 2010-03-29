@@ -31,10 +31,6 @@ SOURCES=				\
 	typing/typing.mli		\
 	intermediate/lambda.ml		\
 	intermediate/lambda.mli		\
-	intermediate/typeopt.ml		\
-	intermediate/typeopt.mli	\
-	intermediate/translprim.ml	\
-	intermediate/translprim.mli	\
 	intermediate/translpat.ml	\
 	intermediate/translpat.mli	\
 	intermediate/translexp.ml	\

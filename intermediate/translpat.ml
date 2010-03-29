@@ -1,6 +1,6 @@
+open Astcommon
 open Lambda
 open Primitive
-open Translprim
 open Typedast
 open Types
 
@@ -133,25 +133,19 @@ let rec compile matching =
              id0il), total
 
     (* Case 6: Column 0 starts with a constant pattern *)
-    | Matching(({ pat_desc = Tpat_constant(c) } as pat :: patl, lambda) :: clausel, (id0 :: idl1 as idl)) ->
-        let lid0 = Lident(id0) in
+    | Matching(({ pat_desc = Tpat_constant(c) } :: patl, lambda) :: clausel, (id0 :: idl1 as idl)) ->
         let clausel1, clausel2 = partition_constant c clausel in
         let lambda1, total1 = compile (Matching((patl, lambda) :: clausel1, idl1)) in
         let lambda2, total2 = compile (Matching(clausel2, idl)) in
-        let exp0id = { exp_desc = Texp_ident(id0, { val_kind = Val_regular; val_tau = pat.pat_tau });
-                       exp_loc = pat.pat_loc;
-                       exp_tau = pat.pat_tau;
-                       exp_gamma = pat.pat_gamma } in
-        let exp0c = { exp_desc = Texp_constant(c);
-                      exp_loc = pat.pat_loc;
-                      exp_tau = pat.pat_tau;
-                      exp_gamma = pat.pat_gamma } in
-        let prim0 = { prim_name = "%equal";
-                      prim_arity = 2;
-                      prim_alloc = false;
-                      prim_native_name = "";
-                      prim_native_float = false } in
-        let lambda0 = Lprim(translate_primitive prim0 [exp0id; exp0c], [lid0; Lconst(Sconst_base(c))]) in
+        let prim0 = (match c with
+                       | Const_int(_)
+                       | Const_char(_) -> Pintcmp(Ceq)
+                       | Const_float(_) -> Pfloatcmp(Ceq)
+                       | Const_int32(_) -> Pbintcmp(Pint32, Ceq)
+                       | Const_int64(_) -> Pbintcmp(Pint64, Ceq)
+                       | Const_string(_) -> Pstringcmp(Ceq)
+                       | Const_nativeint(_) -> Pbintcmp(Pnativeint, Ceq)) in
+        let lambda0 = Lprim(prim0, [Lident(id0); Lconst(Sconst_base(c))]) in
           if total1 then
             Lifthenelse(lambda0, lambda1, lambda2), total2
           else

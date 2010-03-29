@@ -4,6 +4,7 @@ type comparison =
   | Ceq | Cne
   | Clt | Cgt
   | Cle | Cge
+  | Ccmp
 
 and boxed_integer =
   | Pint32
@@ -31,7 +32,11 @@ and primitive =
   | Pfloatcmp of comparison
   (* Boxed integer operations *)
   | Pbintcmp of boxed_integer * comparison
-  
+  (* String operations *)
+  | Pstringcmp of comparison
+  (* Generic operations *)
+  | Pgencmp of comparison
+
 and structured_constant =
   | Sconst_base of constant
   | Sconst_pointer of int

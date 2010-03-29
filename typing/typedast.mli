@@ -16,10 +16,6 @@ and pattern_desc =
   | Tpat_construct of constructor_description * pattern list
   | Tpat_or of pattern * pattern
 
-and partial =
-  | Partial
-  | Total
-
 and expression =
     { exp_desc:  expression_desc;
       exp_loc:   Location.t;
@@ -30,9 +26,9 @@ and expression_desc =
   | Texp_constant of constant
   | Texp_ident of Ident.t * value_description
   | Texp_let of rec_flag * (pattern * expression) list * expression
-  | Texp_function of (pattern * expression) list * partial
+  | Texp_function of (pattern * expression) list
   | Texp_apply of expression * expression list
-  | Texp_match of expression * (pattern * expression) list * partial
+  | Texp_match of expression * (pattern * expression) list
   | Texp_try of expression * (pattern * expression) list
   | Texp_tuple of expression list
   | Texp_construct of constructor_description * expression list

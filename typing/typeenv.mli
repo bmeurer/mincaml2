@@ -27,6 +27,7 @@ val type_unit: typ
 val type_bool: typ
 val type_list: typ -> typ
 val type_option: typ -> typ
+val type_arrow: typ -> typ -> typ
 
 (* Type of a type environment *)
 type t

@@ -22,4 +22,7 @@ exception Error of error * Location.t
 
 val report_error: Format.formatter -> error -> unit
 
+val instance_of: Typeenv.t -> typ -> typ -> bool
+
+val type_exp: Typeenv.t -> Parsedast.expression -> Typedast.expression
 val type_structure: Typeenv.t -> Parsedast.structure -> Typedast.structure

@@ -84,7 +84,8 @@ let rec is_value exp =
     | Texp_constant(_)
     | Texp_ident(_)
     | Texp_function(_) -> true
-    | Texp_tuple(expl) -> List.for_all is_value expl
+    | Texp_tuple(expl)
+    | Texp_construct(_, expl) -> List.for_all is_value expl
     | Texp_when(_, exp) -> is_value exp
     | _ -> false
 
@@ -162,6 +163,13 @@ let rec unify gamma tau1 tau2 =
           | Unify_error(taupl) ->
               raise (Unify_error((tau1, tau2) :: taupl))
 
+(* Check if tau1 is an instance of tau2 *)
+let instance_of gamma tau1 tau2 =
+  try
+    unify gamma (instantiate tau1) (instantiate tau2);
+    true
+  with
+    | Unify_error(_) -> false
 
 (******************************************************)
 (*** Translating parsed types and type declarations ***)
@@ -550,8 +558,8 @@ and type_exp gamma pexp =
     | Pexp_function(pcases) ->
         let tau = new_var () in
         let tau' = new_var () in
-        let cases, partial = solve_cases gamma pcases tau tau' in
-          { exp_desc = Texp_function(cases, partial);
+        let cases = solve_cases gamma pcases tau tau' in
+          { exp_desc = Texp_function(cases);
             exp_loc = pexp.pexp_loc;
             exp_tau = new_typ (Tarrow(tau, tau'));
             exp_gamma = gamma }
@@ -567,14 +575,14 @@ and type_exp gamma pexp =
     | Pexp_match(pexp', pcases) ->
         let tau = new_var () in
         let exp = type_exp gamma pexp' in
-        let cases, partial = solve_cases gamma pcases exp.exp_tau tau in
-          { exp_desc = Texp_match(exp, cases, partial);
+        let cases = solve_cases gamma pcases exp.exp_tau tau in
+          { exp_desc = Texp_match(exp, cases);
             exp_loc = pexp.pexp_loc;
             exp_tau = tau;
             exp_gamma = gamma }
     | Pexp_try(pexp', pcases) ->
         let exp = type_exp gamma pexp' in
-        let cases, _ = solve_cases gamma pcases (instantiate Typeenv.type_exn) exp.exp_tau in
+        let cases = solve_cases gamma pcases (instantiate Typeenv.type_exn) exp.exp_tau in
           { exp_desc = Texp_try(exp, cases);
             exp_loc = pexp.pexp_loc;
             exp_tau = exp.exp_tau;
@@ -661,8 +669,7 @@ and solve_cases gamma pcases tau tau' =
                     let exp = solve_exp gamma' pexp tau' in
                       pat, exp)
                  pcases) in
-    (* TODO - check if pattern is full *)
-    cases, Partial
+    cases
 
 and type_let gamma rec_flag pcases =
   let level = enter_typ_level () in
