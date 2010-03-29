@@ -43,7 +43,7 @@ and print_type_list prio sep ppf = function
   | tau :: taul -> fprintf ppf "%a%s%a" (print_type_expr prio) tau sep (print_type_list prio sep) taul
 
 let print_typ ppf tau =
-  type_names := []; (* TODO *)
+  type_names := [];
   print_type_expr 0 ppf tau
 
 let report_unification_error ppf taupl txt1 txt2 =

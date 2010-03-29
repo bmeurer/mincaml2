@@ -71,10 +71,12 @@ let rec subst id' lambda' = function
       lambda'
   | Lident(_) as lambda ->
       lambda
-  | Lapply(_) ->
-      assert false (* TODO *)
-  | Lfunction(_) ->
-      assert false (* TODO *)
+  | Lapply(lambda, lambdal) ->
+      Lapply(subst id' lambda' lambda, List.map (subst id' lambda') lambdal)
+  | Lfunction(idl, _) as lambda when List.mem id' idl ->
+      lambda
+  | Lfunction(idl, lambda) ->
+      Lfunction(idl, subst id' lambda' lambda)
   | Llet(id, lambda1, lambda2) when Ident.equal id id' ->
       Llet(id, subst id' lambda' lambda1, lambda2)
   | Llet(id, lambda1, lambda2) ->
