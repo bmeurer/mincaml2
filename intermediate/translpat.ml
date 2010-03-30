@@ -58,9 +58,11 @@ let rec partition_constant c = function
 let rec partition_constructors = function
   | ({ pat_desc = Tpat_construct(cstr, patl') } :: patl, lambda) :: clausel ->
       let constl, blockl, clausel = partition_constructors clausel in
+        assert (cstr.cstr_arity = List.length patl');
         begin match cstr.cstr_tag with
           | Cstr_constant(tag) ->
               begin try
+                assert (cstr.cstr_arity = 0);
                 let case = List.assoc (tag, cstr.cstr_arity) constl in
                   case := (patl, lambda) :: !case;
                   constl, blockl, clausel
@@ -69,11 +71,12 @@ let rec partition_constructors = function
               end
           | Cstr_block(tag) ->
               begin try
+                assert (cstr.cstr_arity > 0);
                 let case = List.assoc (tag, cstr.cstr_arity) blockl in
-                  case := (patl, lambda) :: !case;
+                  case := (patl' @ patl, lambda) :: !case;
                   constl, blockl, clausel
               with
-                | Not_found -> constl, ((tag, cstr.cstr_arity), ref [patl, lambda]) :: blockl, clausel
+                | Not_found -> constl, ((tag, cstr.cstr_arity), ref [patl' @ patl, lambda]) :: blockl, clausel
               end
           | _ -> (* handled elsewhere *)
               assert false

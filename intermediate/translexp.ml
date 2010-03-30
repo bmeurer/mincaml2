@@ -130,8 +130,10 @@ let rec translate_exp exp =
         translate_let rec_flag casel (translate_exp exp)
     | Texp_function(casel) ->
         let id = name_pattern "param" casel in
-        let lambda = translate_match_check_failure exp.exp_loc (Lident(id)) (translate_casel casel) in
-          Lfunction([id], lambda)
+          begin match translate_match_check_failure exp.exp_loc (Lident(id)) (translate_casel casel) with
+            | Lfunction(idl, lambda) -> Lfunction(id :: idl, lambda)
+            | lambda -> Lfunction([id], lambda)
+          end
     | Texp_apply({ exp_desc = Texp_ident(_, { val_kind = Val_primitive(prim) }) } as exp, expl) when prim.prim_arity = List.length expl ->
         Lprim(translate_primitive exp.exp_gamma prim exp.exp_tau, translate_exp_list expl)
     | Texp_apply(exp, expl) ->

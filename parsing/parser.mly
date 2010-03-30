@@ -23,8 +23,31 @@
       | "-", Pexp_constant(Const_nativeint(n)) -> mkexp (Pexp_constant(Const_nativeint(Nativeint.neg n)))
       | _, _ -> mkexp (Pexp_apply(mkoperator ("~" ^ name) 1, [e]))
 
-  let ghexp d = {pexp_desc = d; pexp_loc = symbol_gloc ()}
-  let ghstrexp e = {pstr_desc = Pstr_exp(e); pstr_loc = {e.pexp_loc with loc_ghost = true}}
+  let ghexp d = { pexp_desc = d; pexp_loc = symbol_gloc () }
+  let ghpat d = { ppat_desc = d; ppat_loc = symbol_gloc () }
+  let ghstrexp e = { pstr_desc = Pstr_exp(e); pstr_loc = { e.pexp_loc with loc_ghost = true }}
+
+  let rec mklistexp = function
+    | [] ->
+        ghexp (Pexp_construct("[]", None))
+    | e1 :: e2l ->
+        let e2 = mklistexp e2l in
+        let loc = { loc_start = e1.pexp_loc.loc_start;
+                    loc_end = e2.pexp_loc.loc_end;
+                    loc_ghost = true } in
+        let e = { pexp_desc = Pexp_tuple([e1; e2]); pexp_loc = loc } in
+          { pexp_desc = Pexp_construct("::", Some(e)); pexp_loc = loc }
+
+  let rec mklistpat = function
+    | [] ->
+        ghpat (Ppat_construct("[]", None))
+    | p1 :: p2l ->
+        let p2 = mklistpat p2l in
+        let loc = { loc_start = p1.ppat_loc.loc_start;
+                    loc_end = p2.ppat_loc.loc_end;
+                    loc_ghost = true } in
+        let p = { ppat_desc = Ppat_tuple([p1; p2]); ppat_loc = loc } in
+          { ppat_desc = Ppat_construct("::", Some(p)); ppat_loc = loc }
 
   let reloc_exp e = {e with pexp_loc = symbol_rloc ()}
   let reloc_pat p = {p with ppat_loc = symbol_rloc ()}
@@ -43,6 +66,7 @@
 %token BEGIN
 %token <char> CHAR
 %token COLON
+%token COLONCOLON
 %token COLONEQUAL
 %token COMMA
 %token ELSE
@@ -66,6 +90,7 @@
 %token <int32> INT32
 %token <int64> INT64
 %token LET
+%token LBRACKET
 %token <string> LOWERCASEIDENT
 %token LPAREN
 %token MATCH
@@ -77,6 +102,7 @@
 %token PLUS
 %token <string> PREFIXOP
 %token QUOTE
+%token RBRACKET
 %token REC
 %token RPAREN
 %token SEMI
@@ -113,13 +139,15 @@
 %nonassoc below_EQUAL
 %left     INFIXOP0 EQUAL
 %right    INFIXOP1
+%right    COLONCOLON
 %left     INFIXOP2 PLUS MINUS MINUSDOT
 %left     INFIXOP3 STAR
 %right    INFIXOP4
 %nonassoc prec_unary_minus
 %nonassoc prec_constant_constructor
 %nonassoc prec_constructor_apply
-%nonassoc BEGIN CHAR FALSE FLOAT INT INT32 INT64 LOWERCASEIDENT LPAREN NATIVEINT PREFIXOP STRING TRUE UPPERCASEIDENT
+%nonassoc BEGIN CHAR FALSE FLOAT INT INT32 INT64 LBRACKET LOWERCASEIDENT
+          LPAREN NATIVEINT PREFIXOP STRING TRUE UPPERCASEIDENT
 
 /* Entry points */
 
@@ -199,6 +227,8 @@ expr:
     { mkexp (Pexp_ifthenelse($2, $4, Some $6)) }
 | IF seq_expr THEN expr
     { mkexp (Pexp_ifthenelse($2, $4, None)) }
+| expr COLONCOLON expr
+    { mkexp (Pexp_construct("::", Some(ghexp (Pexp_tuple([$1; $3]))))) }
 | expr AMPERAMPER expr
     { mkinfix $1 "&&" $3 }
 | expr BARBAR expr
@@ -236,6 +266,13 @@ expr_comma_list:
     { [$3; $1] }
 ;
 
+expr_semi_list:
+| expr_semi_list SEMI expr
+    { $3 :: $1 }
+| expr
+    { [$1] }
+;
+
 simple_expr:
 | value_ident
     { mkexp (Pexp_ident($1)) }
@@ -251,6 +288,10 @@ simple_expr:
     { reloc_exp $2 }
 | BEGIN seq_expr error
     { unclosed "begin" 1 "end" 3 }
+| LBRACKET expr_semi_list opt_semi RBRACKET
+    { reloc_exp (mklistexp (List.rev $2)) }
+| LBRACKET expr_semi_list opt_semi error
+    { unclosed "[" 1 "]" 4 }
 | LPAREN seq_expr COLON typ RPAREN
     { mkexp (Pexp_constraint($2, $4)) }
 | LPAREN seq_expr COLON typ error
@@ -322,6 +363,8 @@ pattern:
     { mkpat (Ppat_tuple(List.rev $1)) }
 | constructor_ident pattern %prec prec_constructor_apply
     { mkpat (Ppat_construct($1, Some($2))) }
+| pattern COLONCOLON pattern
+    { mkpat (Ppat_construct("::", Some(ghpat (Ppat_tuple([$1; $3]))))) }
 | pattern BAR pattern
     { mkpat (Ppat_or($1, $3)) }
 ;
@@ -333,6 +376,13 @@ pattern_comma_list:
     { $3 :: $1 }
 ;
 
+pattern_semi_list:
+| pattern_semi_list SEMI pattern
+    { $3 :: $1 }
+| pattern
+    { [$1] }
+;
+
 simple_pattern:
 | value_ident %prec below_EQUAL
     { mkpat (Ppat_ident($1)) }
@@ -342,6 +392,10 @@ simple_pattern:
     { mkpat (Ppat_constant($1)) }
 | constructor_ident
     { mkpat (Ppat_construct($1, None)) }
+| LBRACKET pattern_semi_list opt_semi RBRACKET
+    { reloc_pat (mklistpat (List.rev $2)) }
+| LBRACKET pattern_semi_list opt_semi error
+    { unclosed "[" 1 "]" 4 }
 | LPAREN pattern RPAREN
     { reloc_pat $2 }
 | LPAREN pattern error
@@ -505,7 +559,9 @@ ident:
 
 constructor_ident:
 | UPPERCASEIDENT    { $1 }
+| LBRACKET RBRACKET { "[]" }
 | LPAREN RPAREN     { "()" }
+| COLONCOLON        { "::" }
 | FALSE             { "false" }
 | TRUE              { "true" }
 ;
@@ -543,6 +599,11 @@ rec_flag:
 opt_bar:
 | /* empty */ { () }
 | BAR         { () }
+;
+
+opt_semi:
+| /* empty */ { () }
+| SEMI        { () }
 ;
 
 subtractive:

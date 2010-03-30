@@ -172,6 +172,8 @@ rule token = parse
       { BARBAR }
   | ':'
       { COLON }
+  | "::"
+      { COLONCOLON }
   | ":="
       { COLONEQUAL }
   | ','
@@ -186,6 +188,8 @@ rule token = parse
       { INFIXOP2(Lexing.lexeme lexbuf) }
   | "*." | "/" | "/."
       { INFIXOP3(Lexing.lexeme lexbuf) }
+  | '['
+      { LBRACKET }
   | '('
       { LPAREN }
   | '-'
@@ -200,6 +204,8 @@ rule token = parse
       { PREFIXOP(Lexing.lexeme lexbuf) }
   | "'"
       { QUOTE }
+  | ']'
+      { RBRACKET }
   | ')'
       { RPAREN }
   | ';'
