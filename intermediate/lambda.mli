@@ -40,7 +40,6 @@ and primitive =
   
 and structured_constant =
   | Sconst_base of constant
-  | Sconst_pointer of int
   | Sconst_block of int * structured_constant list
 
 and lambda =

@@ -40,7 +40,6 @@ and primitive =
 
 and structured_constant =
   | Sconst_base of constant
-  | Sconst_pointer of int
   | Sconst_block of int * structured_constant list
 
 and lambda =
@@ -65,7 +64,7 @@ and lambda_switch =
       sw_blocks: (int * lambda) list;
       sw_default: lambda option }
 
-let lambda_unit = Lconst(Sconst_pointer 0)
+let lambda_unit = Lconst(Sconst_base(Const_int(0)))
 
 let rec subst id' lambda' = function
   | Lconst(_) as lambda ->

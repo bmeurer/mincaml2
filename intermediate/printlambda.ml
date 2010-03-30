@@ -24,8 +24,6 @@ let rec print_structured_constant ppf = function
       fprintf ppf "%S" s
   | Sconst_base(Const_nativeint(n)) ->
       fprintf ppf "%nin" n
-  | Sconst_pointer(n) ->
-      fprintf ppf "%ia" n
   | Sconst_block(tag, []) ->
       fprintf ppf "[%i]" tag
   | Sconst_block(tag, sc :: scl) ->

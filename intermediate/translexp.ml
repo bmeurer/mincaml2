@@ -159,7 +159,7 @@ let rec translate_exp exp =
         let lambdal = translate_exp_list expl in
           begin match cstr.cstr_tag with
             | Cstr_constant(tag) ->
-                Lconst(Sconst_pointer(tag))
+                Lconst(Sconst_base(Const_int(tag)))
             | Cstr_block(tag) ->
                 begin try
                   Lconst(Sconst_block(tag, List.map extract_constant lambdal))
