@@ -146,6 +146,8 @@
 %nonassoc prec_unary_minus
 %nonassoc prec_constant_constructor
 %nonassoc prec_constructor_apply
+%nonassoc below_DOT
+%nonassoc DOT
 %nonassoc BEGIN CHAR FALSE FLOAT INT INT32 INT64 LBRACKET LOWERCASEIDENT
           LPAREN NATIVEINT PREFIXOP STRING TRUE UPPERCASEIDENT
 
@@ -205,7 +207,7 @@ seq_expr:
 ;
 
 expr:
-| simple_expr
+| simple_expr %prec below_DOT
     { $1 }
 | simple_expr simple_expr_list
     { mkexp (Pexp_apply($1, List.rev $2)) }
@@ -221,7 +223,7 @@ expr:
     { mkexp (Pexp_try($2, List.rev $5)) }
 | expr_comma_list %prec below_COMMA
     { mkexp (Pexp_tuple(List.rev $1)) }
-| constructor_ident simple_expr
+| constructor_longident simple_expr %prec below_DOT
     { mkexp (Pexp_construct($1, Some $2)) }
 | IF seq_expr THEN expr ELSE expr
     { mkexp (Pexp_ifthenelse($2, $4, Some $6)) }
@@ -278,7 +280,7 @@ simple_expr:
     { mkexp (Pexp_ident($1)) }
 | constant
     { mkexp (Pexp_constant($1)) }
-| constructor_ident %prec prec_constant_constructor
+| constructor_longident %prec prec_constant_constructor
     { mkexp (Pexp_construct($1, None)) }
 | LPAREN seq_expr RPAREN
     { reloc_exp $2 }
@@ -361,7 +363,7 @@ pattern:
     { mkpat (Ppat_alias($1, $3)) }
 | pattern_comma_list %prec below_COMMA
     { mkpat (Ppat_tuple(List.rev $1)) }
-| constructor_ident pattern %prec prec_constructor_apply
+| constructor_longident pattern %prec prec_constructor_apply
     { mkpat (Ppat_construct($1, Some($2))) }
 | pattern COLONCOLON pattern
     { mkpat (Ppat_construct("::", Some(ghpat (Ppat_tuple([$1; $3]))))) }
@@ -390,7 +392,7 @@ simple_pattern:
     { mkpat (Ppat_any) }
 | signed_constant
     { mkpat (Ppat_constant($1)) }
-| constructor_ident
+| constructor_longident
     { mkpat (Ppat_construct($1, None)) }
 | LBRACKET pattern_semi_list opt_semi RBRACKET
     { reloc_pat (mklistpat (List.rev $2)) }
@@ -459,7 +461,7 @@ constructor_declarations:
 ;
 
 constructor_declaration:
-| UPPERCASEIDENT constructor_arguments
+| constructor_ident constructor_arguments
     { $1, $2, symbol_rloc () }
 ;
 
@@ -558,10 +560,17 @@ ident:
 ;
 
 constructor_ident:
+| UPPERCASEIDENT { $1 }
+| LPAREN RPAREN  { "()" }
+| COLONCOLON     { "::" }
+| FALSE          { "false" }
+| TRUE           { "true" }
+;
+
+constructor_longident:
 | UPPERCASEIDENT    { $1 }
 | LBRACKET RBRACKET { "[]" }
 | LPAREN RPAREN     { "()" }
-| COLONCOLON        { "::" }
 | FALSE             { "false" }
 | TRUE              { "true" }
 ;

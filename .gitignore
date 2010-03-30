@@ -7,4 +7,5 @@
 parsing/lexer.ml
 parsing/parser.ml
 parsing/parser.mli
+parsing/parser.output
 toplevel

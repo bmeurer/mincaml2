@@ -70,12 +70,13 @@ toplevel: $(filter %.cmo,$(OBJECTS))
 	ocamllex -o $@ $<
 
 %.ml %.mli: %.mly
-	ocamlyacc $<
+	ocamlyacc -v $<
 
 clean::
 	rm -f $(OBJECTS)
 	rm -f .depend
-	rm -f parsing/lexer.ml parsing/parser.ml parsing/parser.mli
+	rm -f parsing/lexer.ml
+	rm -f parsing/parser.ml parsing/parser.mli parsing/parser.output
 	rm -f toplevel
 
 .depend: Makefile $(SOURCES)

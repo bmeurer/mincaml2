@@ -25,16 +25,23 @@ external ( mod ): int -> int -> int = "%modint"
 external fst: 'a * 'b -> 'a = "%getfield0"
 external snd: 'a * 'b -> 'b = "%getfield1"
 
-(*
 let rec fact x = if x = 0 then 1 else fact (x - 1);;
 
+let rec map f l =
+  match l with
+    | [] -> []
+    | x :: l -> (f x) :: (map f l)
+;;
+
+let map_fact = map fact;;
+
+(*
 let rec fib = function
   | 0 -> 1
   | 1 -> 1
   | x -> (+) (fib ( x-1)) (fib ((+) x (-2)));;
 
 let swap (x, y) = y, x;;
-*)
 
 let length l =
   let rec length_aux accu = function
@@ -42,5 +49,4 @@ let length l =
     | _ :: l -> length_aux (accu + 1) l
   in length_aux 0 l
 ;;
-
-length [];;
+*)
