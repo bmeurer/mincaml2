@@ -184,7 +184,7 @@ rule token = parse
       { INFIXOP1(Lexing.lexeme lexbuf) }
   | "+" | "+."
       { INFIXOP2(Lexing.lexeme lexbuf) }
-  | "*" | "*." | "/" | "/."
+  | "*." | "/" | "/."
       { INFIXOP3(Lexing.lexeme lexbuf) }
   | '('
       { LPAREN }
