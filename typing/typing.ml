@@ -740,7 +740,7 @@ and type_structure gamma pstrl =
   let rec type_structure_aux gamma pstrl accu =
     match pstrl with
       | [] ->
-          []
+          List.rev accu
       | pstr :: pstrl ->
           let str, gamma = type_structure_item gamma pstr in
             type_structure_aux gamma pstrl (str :: accu)
