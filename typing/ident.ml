@@ -1,3 +1,5 @@
+open Format
+
 type t =
     { name:  string;
       stamp: int }
@@ -23,3 +25,5 @@ let compare id1 id2 =
 let equal id1 id2 =
   compare id1 id2 = 0
 
+let print ppf id =
+  fprintf ppf "%s/%i" id.name id.stamp
