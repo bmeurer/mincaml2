@@ -64,10 +64,25 @@ let primitive_comparisons = HashtblUtils.create 7
 
 let primitives = HashtblUtils.create 33
   [
-    "%identity", Pidentity;
-    "%ignore",   Pignore;
-    "%eq",       Pintcmp(Ceq);
-    "%noteq",    Pintcmp(Cne);
+    "%identity",  Pidentity;
+    "%ignore",    Pignore;
+    "%raise",     Praise;
+    "%getfield0", Pgetfield(0);
+    "%getfield1", Pgetfield(1);
+    "%eq",        Pintcmp(Ceq);
+    "%noteq",     Pintcmp(Cne);
+    "%negint",    Pnegint;
+    "%addint",    Paddint;
+    "%subint",    Psubint;
+    "%mulint",    Pmulint;
+    "%divint",    Pdivint;
+    "%modint",    Pmodint;
+    "%andint",    Pandint;
+    "%orint",     Porint;
+    "%xorint",    Pxorint;
+    "%lslint",    Plslint;
+    "%lsrint",    Plsrint;
+    "%asrint",    Pasrint;
   ]
 
 let translate_primitive gamma prim tau = 

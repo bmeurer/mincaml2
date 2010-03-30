@@ -22,6 +22,10 @@ external ( * ): int -> int -> int = "%mulint"
 external ( / ): int -> int -> int = "%divint"
 external ( mod ): int -> int -> int = "%modint"
 
+external fst: 'a * 'b -> 'a = "%getfield0"
+external snd: 'a * 'b -> 'b = "%getfield1"
+
+
 let rec fact x = if x = 0 then 1 else fact (x - 1);;
 
 let rec fib = function
@@ -31,5 +35,4 @@ let rec fib = function
 
 let swap (x, y) = y, x;;
 
-let fst (x, _) = x;;
-let snd (_, x) = x;;
+

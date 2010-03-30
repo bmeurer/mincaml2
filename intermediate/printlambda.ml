@@ -49,9 +49,9 @@ let print_primitive ppf = function
   | Praise ->
       fprintf ppf "raise"
   | Pmakeblock(tag, Mutable) ->
-      fprintf ppf "makeblock(%i,Mutable)" tag
+      fprintf ppf "makemutblock %i" tag
   | Pmakeblock(tag, Immutable) ->
-      fprintf ppf "makeblock(%i,Immutable)" tag
+      fprintf ppf "makeimmblock %i" tag
   | Pgetfield(n) ->
       fprintf ppf "getfield %i" n
   | Pextcall(prim) ->
@@ -81,7 +81,7 @@ let print_primitive ppf = function
   | Pasrint ->
       fprintf ppf "asr"
   | Pintcmp(cmp) ->
-      fprintf ppf "int_%a" print_comparison cmp
+      fprintf ppf "%a" print_comparison cmp
   | Pintoffloat ->
       fprintf ppf "int_of_float"
   | Pfloatofint ->
@@ -103,7 +103,7 @@ let print_primitive ppf = function
   | Pstringcmp(cmp) ->
       fprintf ppf "string_%a" print_comparison cmp
   | Pgencmp(cmp) ->
-      fprintf ppf "%a" print_comparison cmp
+      fprintf ppf "%a*" print_comparison cmp
 
 let rec print_lambda ppf = function
   | Lconst(sc) ->

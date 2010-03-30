@@ -19,3 +19,18 @@ let tstr =
         exit 2
   end
 ;;
+
+let lambda =
+  begin try
+    Translexp.translate_structure tstr
+  with
+    | Translexp.Error(error, loc) ->
+        Location.print_error Format.err_formatter loc;
+        Translexp.report_error Format.err_formatter error;
+        Format.fprintf Format.err_formatter "@.";
+        exit 2
+  end
+;;
+
+Printlambda.print_lambda Format.std_formatter lambda;
+Format.fprintf Format.std_formatter "@."

@@ -35,6 +35,8 @@ let rec flatten (Matching(clausel, idl)) =
   in Matching(flatten_clausel clausel, idl)
 
 let rec expand_tuple = function
+  | [] ->
+      []
   | ({ pat_desc = Tpat_tuple(patl') } :: patl, lambda) :: clausel ->
       (patl' @ patl, lambda) :: expand_tuple clausel
   | ({ pat_desc = Tpat_any; pat_tau = { typ_desc = Ttuple(taul) } } as pat :: patl, lambda) :: clausel ->
