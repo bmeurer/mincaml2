@@ -744,4 +744,4 @@ and type_structure gamma pstrl =
       | pstr :: pstrl ->
           let str, gamma = type_structure_item gamma pstr in
             type_structure_aux gamma pstrl (str :: accu)
-  in List.rev (type_structure_aux gamma pstrl [])
+  in type_structure_aux gamma pstrl []
