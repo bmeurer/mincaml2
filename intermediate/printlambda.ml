@@ -48,8 +48,10 @@ let print_primitive ppf = function
       fprintf ppf "identity"
   | Praise ->
       fprintf ppf "raise"
-  | Pmakeblock(tag) ->
-      fprintf ppf "makeblock %i" tag
+  | Pmakeblock(tag, Mutable) ->
+      fprintf ppf "makeblock(%i,Mutable)" tag
+  | Pmakeblock(tag, Immutable) ->
+      fprintf ppf "makeblock(%i,Immutable)" tag
   | Pgetfield(n) ->
       fprintf ppf "getfield %i" n
   | Pextcall(prim) ->

@@ -705,25 +705,17 @@ and type_structure_item gamma pstr =
   match pstr.pstr_desc with
     | Pstr_exp(pexp) ->
         let exp = type_exp gamma pexp in
-          { str_desc = Tstr_exp(exp);
-            str_loc = pstr.pstr_loc;
-            str_gamma = gamma }, gamma
+          Tstr_exp(exp), gamma
     | Pstr_let(rec_flag, pcases) ->
         let gamma', cases = type_let gamma rec_flag pcases in
-          { str_desc = Tstr_let(rec_flag, cases);
-            str_loc = pstr.pstr_loc;
-            str_gamma = gamma }, gamma'
+          Tstr_let(rec_flag, cases), gamma'
     | Pstr_typ(pnameddecls) ->
         let iddecls = translate_type_decls gamma pnameddecls in
-          { str_desc = Tstr_typ(iddecls);
-            str_loc = pstr.pstr_loc;
-            str_gamma = gamma }, Typeenv.add_types iddecls gamma
+          Tstr_typ(iddecls), Typeenv.add_types iddecls gamma
     | Pstr_exn(name, ptaul) ->
         let id = Ident.create name in
         let taul = translate_type_list Strict gamma ptaul in
-          { str_desc = Tstr_exn(id, taul);
-            str_loc = pstr.pstr_loc;
-            str_gamma = gamma }, Typeenv.add_exn id taul gamma
+          Tstr_exn(id, taul), Typeenv.add_exn id taul gamma
     | Pstr_external(name, ptau, pdecl) ->
         begin try
           let tau = translate_type_scheme gamma ptau in
@@ -738,9 +730,7 @@ and type_structure_item gamma pstr =
                                { val_kind = Val_primitive(Primitive.parse_declaration arity pdecl);
                                  val_tau = tau }) in
           let id = Ident.create name in
-            { str_desc = Tstr_external(id, value);
-              str_loc = pstr.pstr_loc;
-              str_gamma = gamma }, Typeenv.add_value id value gamma
+            Tstr_external(id, value), Typeenv.add_value id value gamma
         with
           | Invalid_argument("Primitive.parse_declaration") ->
               raise (Error(Invalid_primitive_declaration(name), pstr.pstr_loc))

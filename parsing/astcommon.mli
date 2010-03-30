@@ -7,6 +7,10 @@ type constant =
   | Const_string of string
   | Const_nativeint of nativeint
 
+type mutable_flag =
+  | Mutable
+  | Immutable
+
 type rec_flag =
   | Recursive
   | NonRecursive

@@ -17,7 +17,7 @@ and primitive =
   | Pidentity
   | Praise
   (* Operations on heap blocks *)
-  | Pmakeblock of int
+  | Pmakeblock of int * mutable_flag
   | Pgetfield of int
   (* External call *)
   | Pextcall of Primitive.description

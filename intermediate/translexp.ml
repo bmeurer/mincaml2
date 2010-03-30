@@ -111,10 +111,8 @@ let rec translate_exp exp =
         let p = translate_primitive exp.exp_gamma prim exp.exp_tau in
         let idl = ListUtils.init prim.prim_arity Ident.create_tmp in
           Lfunction(idl, Lprim(p, List.map (fun id -> Lident(id)) idl))
-    | Texp_let(NonRecursive, casel, exp) ->
-        translate_let casel exp
-    | Texp_let(Recursive, casel, exp) ->
-        translate_letrec casel exp
+    | Texp_let(rec_flag, casel, exp) ->
+        translate_let rec_flag casel (translate_exp exp)
     | Texp_function(casel) ->
         let id = name_pattern "param" casel in
         let lambda = translate_match_check_failure exp.exp_loc (Lident(id)) (translate_casel casel) in
@@ -138,7 +136,7 @@ let rec translate_exp exp =
           begin try
             Lconst(Sconst_block(0, List.map extract_constant lambdal))
           with
-            | Not_constant -> Lprim(Pmakeblock(0), lambdal)
+            | Not_constant -> Lprim(Pmakeblock(0, Immutable), lambdal)
           end
     | Texp_construct(cstr, expl) ->
         let lambdal = translate_exp_list expl in
@@ -149,10 +147,10 @@ let rec translate_exp exp =
                 begin try
                   Lconst(Sconst_block(tag, List.map extract_constant lambdal))
                 with
-                  | Not_constant -> Lprim(Pmakeblock(0), lambdal)
+                  | Not_constant -> Lprim(Pmakeblock(0, Immutable), lambdal)
                 end
             | Cstr_exception(id) ->
-                Lprim(Pmakeblock(0), (Lident(id)) :: lambdal)
+                Lprim(Pmakeblock(0, Immutable), (Lident(id)) :: lambdal)
           end
     | Texp_ifthenelse(exp0, exp1, None) ->
         Lifthenelse(translate_exp exp0, translate_exp exp1, lambda_unit)
@@ -169,23 +167,43 @@ and translate_exp_list expl =
 and translate_casel casel =
   List.map (fun (pat, exp) -> [pat], translate_exp exp) casel
 
-and translate_let casel exp =
-  let rec translate_let_aux = function
-    | [] ->
-        translate_exp exp
-    | (pat, exp) :: casel ->
-        translate_match_check_failure pat.pat_loc (translate_exp exp) [[pat], translate_let_aux casel]
-  in translate_let_aux casel
+and translate_let rec_flag casel lambda =
+  begin match rec_flag with
+    | NonRecursive ->
+        let rec translate_let_aux = function
+          | [] ->
+              lambda
+          | (pat, exp) :: casel ->
+              translate_match_check_failure pat.pat_loc (translate_exp exp) [[pat], translate_let_aux casel]
+        in translate_let_aux casel
 
-and translate_letrec casel exp =
-  let idexpl = (List.map
-                  (fun (pat, exp) ->
-                     match pat.pat_desc with
-                       | Tpat_ident(id) -> id, exp
-                       | _ -> raise (Error(Illegal_letrec_pattern, pat.pat_loc)))
-                  casel) in
-  let translate_letrec_aux (id, exp) =
-    match translate_exp exp with
-      | Lfunction(_) as lambda -> (id, lambda)
-      | _ -> raise (Error(Illegal_letrec_expression, exp.exp_loc))
-  in Lletrec(List.map translate_letrec_aux idexpl, translate_exp exp)
+    | Recursive ->
+        let idexpl = (List.map
+                        (fun (pat, exp) ->
+                           match pat.pat_desc with
+                             | Tpat_ident(id) -> id, exp
+                             | _ -> raise (Error(Illegal_letrec_pattern, pat.pat_loc)))
+                        casel) in
+        let translate_letrec_aux (id, exp) =
+          match translate_exp exp with
+            | Lfunction(_) as lambda -> (id, lambda)
+            | _ -> raise (Error(Illegal_letrec_expression, exp.exp_loc))
+        in Lletrec(List.map translate_letrec_aux idexpl, lambda)
+  end
+
+and translate_structure = function
+  | [] ->
+      lambda_unit
+  | Tstr_exp(exp) :: str ->
+      Lsequence(translate_exp exp, translate_structure str)
+  | Tstr_let(rec_flag, casel) :: str ->
+      translate_let rec_flag casel (translate_structure str)
+  | Tstr_typ(_) :: str ->
+      translate_structure str
+  | Tstr_exn(id, taul) :: str ->
+      (* TODO - This let may not be substituted *)
+      Llet(id,
+           Lprim(Pmakeblock(0, Immutable), [Lconst(Sconst_base(Const_string(Ident.name id)))]),
+           translate_structure str)
+  | Tstr_external(_) :: str ->
+      translate_structure str
