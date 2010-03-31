@@ -142,15 +142,21 @@ let rec compile matching =
         let clausel1, clausel2 = partition_constant c clausel in
         let lambda1, total1 = compile (Matching((patl, lambda) :: clausel1, idl1)) in
         let lambda2, total2 = compile (Matching(clausel2, idl)) in
-        let prim0 = (match c with
-                       | Const_int(_)
-                       | Const_char(_) -> Pintcmp(Ceq)
-                       | Const_float(_) -> Pfloatcmp(Ceq)
-                       | Const_int32(_) -> Pbintcmp(Pint32, Ceq)
-                       | Const_int64(_) -> Pbintcmp(Pint64, Ceq)
-                       | Const_string(_) -> Pstringcmp(Ceq)
-                       | Const_nativeint(_) -> Pbintcmp(Pnativeint, Ceq)) in
-        let lambda0 = Lprim(prim0, [Lident(id0); Lconst(Sconst_base(c))]) in
+        let lambda0 = (match c with
+                         | Const_int(_)
+                         | Const_char(_) ->
+                             Lprim(Pintcmp(Ceq), [Lident(id0); Lconst(Sconst_base(c))])
+                         | Const_float(_) ->
+                             Lprim(Pfloatcmp(Ceq), [Lident(id0); Lconst(Sconst_base(c))])
+                         | Const_int32(_) ->
+                             Lprim(Pbintcmp(Pint32, Ceq), [Lident(id0); Lconst(Sconst_base(c))])
+                         | Const_int64(_) ->
+                             Lprim(Pbintcmp(Pint64, Ceq), [Lident(id0); Lconst(Sconst_base(c))])
+                         | Const_nativeint(_) ->
+                             Lprim(Pbintcmp(Pnativeint, Ceq), [Lident(id0); Lconst(Sconst_base(c))])
+                         | Const_string(_) ->
+                             Lprim(Pintcmp(Ceq), [Lconst(Sconst_base(Const_int(0)));
+                                                  Lprim(Pcompare, [Lident(id0); Lconst(Sconst_base(c))])])) in
           if total1 then
             Lifthenelse(lambda0, lambda1, lambda2), total2
           else

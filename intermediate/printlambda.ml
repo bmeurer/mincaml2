@@ -37,7 +37,6 @@ let print_comparison ppf = function
   | Cgt -> fprintf ppf ">"
   | Cle -> fprintf ppf "<="
   | Cge -> fprintf ppf ">="
-  | Ccmp -> fprintf ppf "compare"
 
 let print_primitive ppf = function
   | Pignore ->
@@ -46,6 +45,8 @@ let print_primitive ppf = function
       fprintf ppf "identity"
   | Praise ->
       fprintf ppf "raise"
+  | Pcompare ->
+      fprintf ppf "compare"
   | Pmakeblock(tag, Mutable) ->
       fprintf ppf "makemutblock %i" tag
   | Pmakeblock(tag, Immutable) ->
@@ -98,10 +99,6 @@ let print_primitive ppf = function
       fprintf ppf "%a." print_comparison cmp
   | Pbintcmp(bi, cmp) ->
       fprintf ppf "%s_%a" (boxed_integer_name bi) print_comparison cmp
-  | Pstringcmp(cmp) ->
-      fprintf ppf "string_%a" print_comparison cmp
-  | Pgencmp(cmp) ->
-      fprintf ppf "%a*" print_comparison cmp
 
 let rec print_lambda ppf = function
   | Lconst(sc) ->

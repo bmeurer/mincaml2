@@ -58,8 +58,7 @@ let primitive_comparisons = HashtblUtils.create 7
     "%lessthan",     Clt;
     "%greaterthan",  Cgt;
     "%lessequal",    Cle;
-    "%greaterequal", Cge;
-    "%compare",      Ccmp
+    "%greaterequal", Cge
   ]
 
 let primitives = HashtblUtils.create 33
@@ -67,6 +66,7 @@ let primitives = HashtblUtils.create 33
     "%identity",  Pidentity;
     "%ignore",    Pignore;
     "%raise",     Praise;
+    "%compare",   Pcompare;
     "%getfield0", Pgetfield(0);
     "%getfield1", Pgetfield(1);
     "%eq",        Pintcmp(Ceq);
@@ -85,31 +85,30 @@ let primitives = HashtblUtils.create 33
     "%asrint",    Pasrint;
   ]
 
-let translate_primitive gamma prim tau = 
+let translate_primitive gamma prim tau lambdal = 
   try
     let cmp = Hashtbl.find primitive_comparisons prim.prim_name in
       if (instance_of gamma tau (type_arrow type_int (type_arrow type_int type_bool))
           || instance_of gamma tau (type_arrow type_char (type_arrow type_char type_bool))) then
-        Pintcmp(cmp)
+        Lprim(Pintcmp(cmp), lambdal)
       else if instance_of gamma tau (type_arrow type_float (type_arrow type_float type_bool)) then
-        Pfloatcmp(cmp)
+        Lprim(Pfloatcmp(cmp), lambdal)
       else if instance_of gamma tau (type_arrow type_int32 (type_arrow type_int32 type_bool)) then
-        Pbintcmp(Pint32, cmp)
+        Lprim(Pbintcmp(Pint32, cmp), lambdal)
       else if instance_of gamma tau (type_arrow type_int64 (type_arrow type_int64 type_bool)) then
-        Pbintcmp(Pint64, cmp)
-      else if instance_of gamma tau (type_arrow type_string (type_arrow type_string type_bool)) then
-        Pstringcmp(cmp)
+        Lprim(Pbintcmp(Pint64, cmp), lambdal)
       else if instance_of gamma tau (type_arrow type_nativeint (type_arrow type_nativeint type_bool)) then
-        Pbintcmp(Pnativeint, cmp)
+        Lprim(Pbintcmp(Pnativeint, cmp), lambdal)
       else
-        Pgencmp(cmp)
+        Lprim(Pintcmp(cmp), [Lprim(Pcompare, lambdal);
+                             Lconst(Sconst_base(Const_int(0)))])
   with
     | Not_found ->
-        try
-          Hashtbl.find primitives prim.prim_name
-        with
-          | Not_found ->
-              Pextcall(prim)
+        Lprim((try
+                 Hashtbl.find primitives prim.prim_name
+               with
+                 | Not_found ->
+                     Pextcall(prim)), lambdal)
 
 
 (**********************************)
@@ -123,9 +122,8 @@ let rec translate_exp exp =
     | Texp_ident(id, { val_kind = Val_regular }) ->
         Lident(id)
     | Texp_ident(_, { val_kind = Val_primitive(prim) }) ->
-        let p = translate_primitive exp.exp_gamma prim exp.exp_tau in
         let idl = ListUtils.init prim.prim_arity Ident.create_tmp in
-          Lfunction(idl, Lprim(p, List.map (fun id -> Lident(id)) idl))
+          Lfunction(idl, translate_primitive exp.exp_gamma prim exp.exp_tau (List.map (fun id -> Lident(id)) idl))
     | Texp_let(rec_flag, casel, exp) ->
         translate_let rec_flag casel (translate_exp exp)
     | Texp_function(casel) ->
@@ -135,7 +133,7 @@ let rec translate_exp exp =
             | lambda -> Lfunction([id], lambda)
           end
     | Texp_apply({ exp_desc = Texp_ident(_, { val_kind = Val_primitive(prim) }) } as exp, expl) when prim.prim_arity = List.length expl ->
-        Lprim(translate_primitive exp.exp_gamma prim exp.exp_tau, translate_exp_list expl)
+        translate_primitive exp.exp_gamma prim exp.exp_tau (translate_exp_list expl)
     | Texp_apply(exp, expl) ->
         Lapply(translate_exp exp, List.map translate_exp expl)
     | Texp_match({ exp_desc = Texp_tuple(expl) }, casel) ->
