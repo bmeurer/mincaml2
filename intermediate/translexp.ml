@@ -202,8 +202,12 @@ and translate_let rec_flag casel lambda =
         let translate_letrec_aux (id, exp) =
           match translate_exp exp with
             | Lfunction(_) as lambda -> (id, lambda)
-            | _ -> raise (Error(Illegal_letrec_expression, exp.exp_loc))
-        in Lletrec(List.map translate_letrec_aux idexpl, lambda)
+            | _ -> raise (Error(Illegal_letrec_expression, exp.exp_loc)) in
+        let idlambdal = List.map translate_letrec_aux idexpl in
+          begin match lambda with
+            | Lletrec(idlambdal', lambda') -> Lletrec(idlambdal @ idlambdal', lambda')
+            | lambda -> Lletrec(idlambdal, lambda)
+          end
   end
 
 and translate_structure = function

@@ -130,7 +130,7 @@ let rec print_lambda ppf = function
                        if !trailing then fprintf ppf "@ " else trailing := true;
                        fprintf ppf "@[<2>%a@ %a@]" Ident.print id print_lambda lambda)
       in let idlambdal, lambda = bindings lambda in
-        fprintf ppf "@[<2>(let@ (@[<hv 1>%a@])@ %a)@]"
+        fprintf ppf "@[<2>(let@ (@[<hv>%a@])@ %a)@]"
           print_bindings idlambdal
           print_lambda lambda
   | Lletrec(idlambdal, lambda) ->
@@ -139,7 +139,7 @@ let rec print_lambda ppf = function
           List.iter (fun (id, lambda) ->
                        if !trailing then fprintf ppf "@ " else trailing := true;
                        fprintf ppf "@[<2>%a@ %a@]" Ident.print id print_lambda lambda)
-      in fprintf ppf "@[<2>(letrec@ (@[<hv 1>%a@])@ %a)@]"
+      in fprintf ppf "@[<2>(letrec@ (@[<hv>%a@])@ %a)@]"
            print_bindings idlambdal
            print_lambda lambda
   | Lprim(p, lambdal) ->
