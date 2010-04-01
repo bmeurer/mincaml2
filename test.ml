@@ -26,9 +26,9 @@ external fst: 'a * 'b -> 'a = "%getfield0"
 external snd: 'a * 'b -> 'b = "%getfield1"
 
 (*
-let rec fact x = if x = 0 then 1 else fact (x - 1) in
-  fact 3;;
-*)
+let rec fact x = if x = 0 then 1 else fact (x - 1);;
+
+fact 3;;
 
 let rec even x =
   if x == 0 then true
@@ -37,7 +37,7 @@ and odd x =
   if x == 0 then false
   else even (x - 1)
 ;;
-
+*)
 
 (*
 let map_fact = map fact;;
@@ -91,3 +91,6 @@ let rec foldl f a l =
 foldl (+) 1 [1;2;3];;
 *)
 
+let f x = if x = 0 then fun y -> y - 1 else fun y -> y + 1;;
+
+f 1 2;;

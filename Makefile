@@ -29,22 +29,24 @@ SOURCES=				\
 	typing/printtyp.mli		\
 	typing/typing.ml		\
 	typing/typing.mli		\
-	intermediate/lambda.ml		\
-	intermediate/lambda.mli		\
-	intermediate/printlambda.ml	\
-	intermediate/printlambda.mli	\
-	intermediate/translpat.ml	\
-	intermediate/translpat.mli	\
-	intermediate/translexp.ml	\
-	intermediate/translexp.mli	\
-	intermediate/closure.ml		\
-	intermediate/closure.mli	\
+	lambda/lambda.ml		\
+	lambda/lambda.mli		\
+	lambda/printlambda.ml		\
+	lambda/printlambda.mli		\
+	lambda/translpat.ml		\
+	lambda/translpat.mli		\
+	lambda/translexp.ml		\
+	lambda/translexp.mli		\
+	lambda/closure.ml		\
+	lambda/closure.mli		\
+	codegen/codegen.ml		\
+	codegen/codegen.mli		\
 	toplevel.ml
 
 OBJECTS=$(patsubst %.ml,%.cmo,$(patsubst %.mli,%.cmi,$(SOURCES))) \
 	$(patsubst %.ml,%.cmx,$(patsubst %.mli,%.cmi,$(SOURCES)))
 
-OCAMLCOMMONFLAGS=-I intermediate -I parsing -I typing -I utils
+OCAMLCOMMONFLAGS=-I codegen -I lambda -I parsing -I typing -I utils
 OCAMLC=ocamlc.opt
 OCAMLCFLAGS=$(OCAMLCOMMONFLAGS) -g -warn-error A
 OCAMLDEP=ocamldep.opt
