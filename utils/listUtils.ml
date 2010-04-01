@@ -45,3 +45,19 @@ let swap n l =
       invalid_arg "ListUtils.swap"
     else
       swap_aux n l []
+
+let split n l =
+  let rec split_aux n l =
+    match n, l with
+      | 0, l ->
+          [], l
+      | n, x :: l -> 
+          let l1, l2 = split_aux (n - 1) l in
+            x :: l1, l2
+      | _ ->
+          failwith "ListUtils.split"
+  in
+    if n < 0 then
+      invalid_arg "ListUtils.split"
+    else
+      split_aux n l

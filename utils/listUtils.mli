@@ -12,3 +12,6 @@ val make: int -> 'a -> 'a list
     Raise [Failure "ListUtils.swap"] if the list [l] is too short.
     Raise [Invalid_argument "ListUtils.swap"] if [n] is negative. *)
 val swap: int -> 'a list -> 'a list
+
+(** TODO *)
+val split: int -> 'a list -> 'a list * 'a list

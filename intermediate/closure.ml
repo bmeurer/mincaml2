@@ -18,6 +18,40 @@ and function_description =
 (*** Miscellaneous ***)
 (*********************)
 
+let build_apply_function arity =
+  let argl = ListUtils.init arity Ident.create_tmp in
+  let clos = Ident.create "clos" in
+  let rec apply clos n =
+    if n = arity - 1 then begin
+      Lapply(Lprim(Pgetfield(0), [Lident(clos)]),
+             [Lident(List.nth argl n); Lident(clos)])
+    end else begin
+      let nclos = Ident.create "clos" in
+        Llet(nclos,
+             Lapply(Lprim(Pgetfield(0), [Lident(clos)]),
+                    [Lident(List.nth argl n); Lident(clos)]),
+             apply nclos (n + 1))
+    end in
+  let idl = argl @ [clos] in
+    Lfunction(idl,
+              if arity = 1 then begin
+                apply clos 0 
+              end else begin
+                Lifthenelse(Lprim(Paddrcmp(Ceq),
+                                  [Lprim(Pgetfield(1), [Lident(clos)]);
+                                   Lconst(Sconst_base(Const_int(arity)))]),
+                            Lapply(Lprim(Pgetfield(2), [Lident(clos)]),
+                                   List.map (fun id -> Lident(id)) idl),
+                            apply clos 0)
+              end)
+
+let build_apply toplevel arity =
+  let apply = Ident.create_predefined ("mincaml2_apply" ^ (string_of_int arity)) in
+    if not (List.exists (fun (id, _) -> Ident.equal id apply) !toplevel) then begin
+      toplevel := (apply, build_apply_function arity) :: !toplevel;
+    end;
+    apply
+
 let rec build_curry_functions toplevel arity num =
   let arg = Ident.create "arg" in
   let clos = Ident.create "clos" in
@@ -87,6 +121,49 @@ let build_offset n lambda =
   else
     Lprim(Paddaddr, [lambda; Lconst(Sconst_base(Const_int(n)))])
 
+(* TODO *)
+let rec is_pure = function
+  | Lconst(_)
+  | Lident(_) -> true
+  | Lapply(_)
+  | Lfunction(_) -> false
+  | Llet(_, lambda1, lambda2) -> is_pure lambda1 && is_pure lambda2
+  | Lletrec(_)
+  | Lprim((Praise | Pextcall(_)), _) -> false
+  | Lprim(_, lambdal) -> List.for_all is_pure lambdal
+  | Lswitch(_)
+  | Lstaticraise
+  | Lstaticcatch(_)
+  | Ltrywith(_) -> false
+  | Lifthenelse(lambda0, lambda1, lambda2) -> is_pure lambda0 && is_pure lambda1 && is_pure lambda2
+  | Lsequence(lambda1, lambda2) -> is_pure lambda1 && is_pure lambda2
+
+let build_direct_apply fundesc lambda lambdal =
+  let lambdal = (if fundesc.fun_closed then
+                   lambdal
+                 else
+                   lambdal @ [lambda]) in
+  let lapply = Lapply(Lident(fundesc.fun_label), lambdal) in
+    (* if lambda is not pure then we need to evaluate it first *)
+    if not fundesc.fun_closed || is_pure lambda then
+      lapply
+    else
+      Lsequence(lambda, lapply)
+
+let rec build_generic_apply toplevel lambda lambdal =
+  match lambda, lambdal with
+    | Lident(_) as lid, [lambda] ->
+        Lapply(Lprim(Pgetfield(0), [lid]),
+               [lambda; lid])
+    | lambda, ([_] as lambdal) ->
+        let id = Ident.create "clos" in
+          Llet(id,
+               lambda,
+               build_generic_apply toplevel (Lident(id)) lambdal)
+    | lambda, lambdal ->
+        Lapply(Lident(build_apply toplevel (List.length lambdal)),
+               lambdal @ [lambda])
+      
 
 (**************************)
 (*** Closure conversion ***)
@@ -102,19 +179,14 @@ let rec close toplevel aenv cenv = function
       end
   | Lapply(lambda, lambdal) ->
       let lambdal = List.map (fun lambda -> fst (close toplevel aenv cenv lambda)) lambdal in
-        (* TODO *)
         begin match close toplevel aenv cenv lambda with
           | lambda, Approx_closure(fundesc, approx) when fundesc.fun_arity = List.length lambdal ->
-              let lambdal = (if fundesc.fun_closed then
-                               lambdal
-                             else
-                               lambdal @ [lambda]) in
-                Lapply(Lident(fundesc.fun_label), lambdal), approx
+              build_direct_apply fundesc lambda lambdal, approx
+          | lambda, Approx_closure(fundesc, approx) when fundesc.fun_arity < List.length lambdal ->
+              let lambdal1, lambdal2 = ListUtils.split fundesc.fun_arity lambdal in
+                build_generic_apply toplevel (build_direct_apply fundesc lambda lambdal1) lambdal2, Approx_unknown
           | lambda, _ ->
-              let id = Ident.create "clos" in
-              let lid = Lident(id) in
-                (* TODO *)
-                Llet(id, lambda, Lapply(Lprim(Pgetfield(0), [lid]), lid :: lambdal)), Approx_unknown
+              build_generic_apply toplevel lambda lambdal, Approx_unknown
         end
   | Lfunction(_) as lambda ->
       let id = Ident.create "fun" in
@@ -250,4 +322,7 @@ and close_letrec toplevel aenv cenv idlambdal lambda =
 let close_lambda lambda =
   let toplevel = ref [] in
   let lambda, _ = close toplevel IdentMap.empty IdentMap.empty lambda in
-    Lletrec(!toplevel, lambda)
+    if !toplevel <> [] then
+      Lletrec(!toplevel, lambda)
+    else
+      lambda

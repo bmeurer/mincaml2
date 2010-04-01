@@ -30,7 +30,6 @@ let rec fact x = if x = 0 then 1 else fact (x - 1) in
   fact 3;;
 *)
 
-(*
 let rec even x =
   if x == 0 then true
   else odd (x - 1)
@@ -38,7 +37,6 @@ and odd x =
   if x == 0 then false
   else even (x - 1)
 ;;
-*)
 
 
 (*
@@ -83,6 +81,7 @@ let h y l =
 ;;
 *)
 
+(*
 let rec foldl f a l =
   match l with
     | [] -> a
@@ -90,3 +89,5 @@ let rec foldl f a l =
 ;;
 
 foldl (+) 1 [1;2;3];;
+*)
+
