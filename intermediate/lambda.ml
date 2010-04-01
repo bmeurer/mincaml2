@@ -129,6 +129,9 @@ let fv lambda =
         fv lambda2
   in fv lambda; !fvs
 
+let occur id lambda =
+  IdentSet.mem id (fv lambda)
+
 let rec subst id' lambda' = function
   | Lconst(_) as lambda ->
       lambda

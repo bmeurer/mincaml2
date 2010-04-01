@@ -75,4 +75,5 @@ val make_header: int -> int -> nativeint
 val split_header: nativeint -> int * int
 
 val fv: lambda -> IdentSet.t
+val occur: Ident.t -> lambda -> bool
 val subst: Ident.t -> lambda -> lambda -> lambda

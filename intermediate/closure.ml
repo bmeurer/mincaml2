@@ -9,8 +9,9 @@ type approximation =
   | Approx_closure of function_description * approximation
 
 and function_description =
-    { fun_label: Ident.t;
-      fun_arity: int }
+    { fun_label:          Ident.t;
+      fun_arity:          int;
+      mutable fun_closed: bool }
 
 
 (*********************)
@@ -56,15 +57,28 @@ let build_curry toplevel arity =
   
 let build_closure toplevel fundesc =
   assert (fundesc.fun_arity > 0);
+  (* generate a trampoline with env if the function is closed *)
+  let label = (if fundesc.fun_closed then begin
+                 let label = Ident.create ((Ident.name fundesc.fun_label) ^ "_trampoline") in
+                 let env = Ident.create "env" in
+                 let idl = ListUtils.init fundesc.fun_arity Ident.create_tmp in
+                   toplevel := (label,
+                                Lfunction(idl @ [env],
+                                          Lapply(Lident(fundesc.fun_label),
+                                                 List.map (fun id -> Lident(id)) idl))) :: !toplevel;
+                   label
+               end else begin
+                 fundesc.fun_label
+               end) in
   if fundesc.fun_arity = 1 then begin
     [Lconst(Sconst_pointer(Lambda.make_header Lambda.tag_closure 0));
-     Lident(fundesc.fun_label);
+     Lident(label);
      Lconst(Sconst_base(Const_int(fundesc.fun_arity)))]
   end else begin
     [Lconst(Sconst_pointer(Lambda.make_header Lambda.tag_closure 0));
      Lident(build_curry toplevel fundesc.fun_arity);
      Lconst(Sconst_base(Const_int(fundesc.fun_arity)));
-     Lident(fundesc.fun_label)]
+     Lident(label)]
   end
 
 let build_offset n lambda =
@@ -91,7 +105,11 @@ let rec close toplevel aenv cenv = function
         (* TODO *)
         begin match close toplevel aenv cenv lambda with
           | lambda, Approx_closure(fundesc, approx) when fundesc.fun_arity = List.length lambdal ->
-              Lapply(Lident(fundesc.fun_label), lambdal @ [lambda]), approx
+              let lambdal = (if fundesc.fun_closed then
+                               lambdal
+                             else
+                               lambdal @ [lambda]) in
+                Lapply(Lident(fundesc.fun_label), lambdal), approx
           | lambda, _ ->
               let id = Ident.create "clos" in
               let lid = Lident(id) in
@@ -153,7 +171,8 @@ and close_letrec toplevel aenv cenv idlambdal lambda =
                    (function
                       | (id, Lfunction(idl, lambda)) ->
                           let fundesc = { fun_label = id;
-                                          fun_arity = List.length idl } in
+                                          fun_arity = List.length idl;
+                                          fun_closed = true } in
                           let off = !offset + 1 in
                             offset := off + 3; (* [trampoline, arity, function pointer] *)
                             id, idl, lambda, fundesc, off
@@ -168,6 +187,8 @@ and close_letrec toplevel aenv cenv idlambdal lambda =
                        IdentMap.add id (Approx_closure(fundesc, Approx_unknown)) aenv)
                     aenv
                     fundefl) in
+  (* Assume that the environment is not needed *)
+  let closed = ref true in
   (* Translate a single function definition *)
   let close_fundef (id, idl, lambda, fundesc, offset0) =
     let id0 = Ident.create "env" in
@@ -187,8 +208,25 @@ and close_letrec toplevel aenv cenv idlambdal lambda =
                   cenv
                   fundefl) in
     let lambda, approx = close toplevel aenv_rec cenv lambda in
-      id, offset0, fundesc, Lfunction(idl @ [id0], lambda), Approx_closure(fundesc, approx) in
-  let closl = List.map close_fundef fundefl in
+      (* invalidate the assumption if we actually need the environment *)
+      if !closed && Lambda.occur id0 lambda then closed := false;
+      (id,
+       offset0,
+       fundesc,
+       Lfunction(idl @ (if fundesc.fun_closed then [] else [id0]), lambda),
+       Approx_closure(fundesc, approx)) in
+  let closl = (begin
+                 (* try to close the functions under the assumption that all of them are closed *)
+                 let closl = List.map close_fundef fundefl in
+                   (* check if the assumption was invalidated *)
+                   if not (!closed) then begin
+                     (* do it again with the environment this time *)
+                     List.iter (fun (_, _, _, fundesc, _) -> fundesc.fun_closed <- false) fundefl;
+                     List.map close_fundef fundefl
+                   end else begin
+                     closl
+                   end
+               end) in
   let id0 = Ident.create "clos" in
   let lid0 = Lident(id0) in
   let aenv_body = ref aenv in
