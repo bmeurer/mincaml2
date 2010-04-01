@@ -1,6 +1,7 @@
 type t
 
 val create: string -> t
+val create_predefined: string -> t
 val create_tmp: int -> t
 val name: t -> string
 val compare: t -> t -> int

@@ -17,12 +17,42 @@ and function_description =
 (*** Miscellaneous ***)
 (*********************)
 
+let rec build_curry_functions toplevel arity num =
+  let arg = Ident.create "arg" in
+  let clos = Ident.create "clos" in
+    if num = arity - 1 then begin
+      let rec curry args clos n =
+        if n = 0 then begin
+          Lapply(Lprim(Pgetfield(2), [Lident(clos)]),
+                 args @ [Lident(arg); Lident(clos)])
+        end else begin
+          let nclos = Ident.create "clos" in
+            Llet(nclos,
+                 Lprim(Pgetfield(3), [Lident(clos)]),
+                 curry (Lprim(Pgetfield(2), [Lident(clos)]) :: args) nclos (n - 1))
+        end
+      in
+        toplevel := (Ident.create_predefined ("mincaml2_curry" ^ (string_of_int arity) ^ "_" ^ (string_of_int num)),
+                     Lfunction([arg; clos], (curry [] clos (arity - 1)))) :: !toplevel
+    end else begin
+      let name1 = "mincaml2_curry" ^ (string_of_int arity) in
+      let name2 = if num = 0 then name1 else name1 ^ "_" ^ (string_of_int num) in
+        toplevel := (Ident.create_predefined name2,
+                     Lfunction([arg; clos],
+                               Lprim(Pmakeblock(Lambda.make_header Lambda.tag_closure 4, Immutable),
+                                     [Lident(Ident.create_predefined (name1 ^ "_" ^ (string_of_int (num + 1))));
+                                      Lconst(Sconst_base(Const_int(1)));
+                                      Lident(arg);
+                                      Lident(clos)]))) :: !toplevel;
+        build_curry_functions toplevel arity (num + 1)
+    end
+
 let build_curry toplevel arity =
-  let id = Ident.create ("mincaml2_curry" ^ (string_of_int arity)) in
-    if not (List.mem_assoc id !toplevel) then begin
-      
+  let curry = Ident.create_predefined ("mincaml2_curry" ^ (string_of_int arity)) in
+    if not (List.exists (fun (id, _) -> Ident.equal id curry) !toplevel) then begin
+      build_curry_functions toplevel arity 0
     end;
-    id
+    curry
   
 let build_closure toplevel fundesc =
   assert (fundesc.fun_arity > 0);
@@ -61,10 +91,11 @@ let rec close toplevel aenv cenv = function
         (* TODO *)
         begin match close toplevel aenv cenv lambda with
           | lambda, Approx_closure(fundesc, approx) when fundesc.fun_arity = List.length lambdal ->
-              Lapply(Lident(fundesc.fun_label), lambda :: lambdal), approx
+              Lapply(Lident(fundesc.fun_label), lambdal @ [lambda]), approx
           | lambda, _ ->
               let id = Ident.create "clos" in
               let lid = Lident(id) in
+                (* TODO *)
                 Llet(id, lambda, Lapply(Lprim(Pgetfield(0), [lid]), lid :: lambdal)), Approx_unknown
         end
   | Lfunction(_) as lambda ->
@@ -156,7 +187,7 @@ and close_letrec toplevel aenv cenv idlambdal lambda =
                   cenv
                   fundefl) in
     let lambda, approx = close toplevel aenv_rec cenv lambda in
-      id, offset0, fundesc, Lfunction(id0 :: idl, lambda), Approx_closure(fundesc, approx) in
+      id, offset0, fundesc, Lfunction(idl @ [id0], lambda), Approx_closure(fundesc, approx) in
   let closl = List.map close_fundef fundefl in
   let id0 = Ident.create "clos" in
   let lid0 = Lident(id0) in
