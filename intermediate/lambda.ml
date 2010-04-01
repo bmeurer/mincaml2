@@ -21,6 +21,10 @@ and primitive =
   | Pgetfield of int
   (* External call *)
   | Pextcall of Primitive.description
+  (* Address operations *)
+  | Paddaddr
+  | Psubaddr
+  | Paddrcmp of comparison
   (* Integer operations *)
   | Pnegint
   | Paddint | Psubint | Pmulint | Pdivint | Pmodint
@@ -60,7 +64,55 @@ and lambda_switch =
       sw_blocks: (int * lambda) list;
       sw_default: lambda option }
 
+module IdentSet = Set.Make(Ident)
+
 let lambda_unit = Lconst(Sconst_base(Const_int(0)))
+
+let fv lambda =
+  let fvs = ref IdentSet.empty in
+  let rec fv = function
+    | Lconst(_) ->
+        ()
+    | Lident(id) ->
+        fvs := IdentSet.add id !fvs;
+    | Lapply(lambda, lambdal) ->
+        fv lambda; 
+        List.iter fv lambdal
+    | Lfunction(idl, lambda) ->
+        fv lambda;
+        List.iter (fun id -> fvs := IdentSet.remove id !fvs) idl
+    | Llet(id, lambda1, lambda2) ->
+        fv lambda1;
+        fv lambda2;
+        fvs := IdentSet.remove id !fvs
+    | Lletrec(idlambdal, lambda) ->
+        fv lambda;
+        List.iter (fun (_, lambda) -> fv lambda) idlambdal;
+        List.iter (fun (id, _) -> fvs := IdentSet.remove id !fvs) idlambdal
+    | Lprim(_, lambdal) ->
+        List.iter fv lambdal
+    | Lswitch(lambda, switch) ->
+        fv lambda;
+        List.iter (fun (_, lambda) -> fv lambda) switch.sw_consts;
+        List.iter (fun (_, lambda) -> fv lambda) switch.sw_blocks;
+        (match switch.sw_default with None -> () | Some(lambda) -> fv lambda)
+    | Lstaticraise ->
+        ()
+    | Lstaticcatch(lambda1, lambda2) ->
+        fv lambda1;
+        fv lambda2
+    | Ltrywith(lambda1, id, lambda2) ->
+        fv lambda1;
+        fv lambda2;
+        fvs := IdentSet.remove id !fvs
+    | Lifthenelse(lambda0, lambda1, lambda2) ->
+        fv lambda0;
+        fv lambda1;
+        fv lambda2
+    | Lsequence(lambda1, lambda2) ->
+        fv lambda1;
+        fv lambda2
+  in fv lambda; !fvs
 
 let rec subst id' lambda' = function
   | Lconst(_) as lambda ->

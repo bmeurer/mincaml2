@@ -33,4 +33,12 @@ let lambda =
 ;;
 
 Printlambda.print_lambda Format.std_formatter lambda;
-Format.fprintf Format.std_formatter "@."
+Format.fprintf Format.std_formatter "@.@."
+
+let lambda0 =
+  Closure.close_lambda lambda
+;;
+
+Printlambda.print_lambda Format.std_formatter lambda0;
+Format.fprintf Format.std_formatter "@.@."
+

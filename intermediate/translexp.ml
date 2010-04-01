@@ -69,8 +69,8 @@ let primitives = HashtblUtils.create 33
     "%compare",   Pcompare;
     "%getfield0", Pgetfield(0);
     "%getfield1", Pgetfield(1);
-    "%eq",        Pintcmp(Ceq);
-    "%noteq",     Pintcmp(Cne);
+    "%eq",        Paddrcmp(Ceq);
+    "%noteq",     Paddrcmp(Cne);
     "%negint",    Pnegint;
     "%addint",    Paddint;
     "%subint",    Psubint;
@@ -88,6 +88,7 @@ let primitives = HashtblUtils.create 33
 let translate_primitive gamma prim tau lambdal = 
   try
     let cmp = Hashtbl.find primitive_comparisons prim.prim_name in
+      (* TODO - this is broken, since alpha is also an instance of int!!!!! *)
       if (instance_of gamma tau (type_arrow type_int (type_arrow type_int type_bool))
           || instance_of gamma tau (type_arrow type_char (type_arrow type_char type_bool))) then
         Lprim(Pintcmp(cmp), lambdal)
@@ -202,12 +203,8 @@ and translate_let rec_flag casel lambda =
         let translate_letrec_aux (id, exp) =
           match translate_exp exp with
             | Lfunction(_) as lambda -> (id, lambda)
-            | _ -> raise (Error(Illegal_letrec_expression, exp.exp_loc)) in
-        let idlambdal = List.map translate_letrec_aux idexpl in
-          begin match lambda with
-            | Lletrec(idlambdal', lambda') -> Lletrec(idlambdal @ idlambdal', lambda')
-            | lambda -> Lletrec(idlambdal, lambda)
-          end
+            | _ -> raise (Error(Illegal_letrec_expression, exp.exp_loc))
+        in Lletrec(List.map translate_letrec_aux idexpl, lambda)
   end
 
 and translate_structure = function

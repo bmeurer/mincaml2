@@ -21,6 +21,10 @@ and primitive =
   | Pgetfield of int
   (* External call *)
   | Pextcall of Primitive.description
+  (* Address operations *)
+  | Paddaddr
+  | Psubaddr
+  | Paddrcmp of comparison
   (* Integer operations *)
   | Pnegint
   | Paddint | Psubint | Pmulint | Pdivint | Pmodint
@@ -60,6 +64,9 @@ and lambda_switch =
       sw_blocks: (int * lambda) list;
       sw_default: lambda option }
 
+module IdentSet: Set.S with type elt = Ident.t
+
 val lambda_unit: lambda
 
+val fv: lambda -> IdentSet.t
 val subst: Ident.t -> lambda -> lambda -> lambda

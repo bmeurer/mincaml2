@@ -37,6 +37,8 @@ SOURCES=				\
 	intermediate/translpat.mli	\
 	intermediate/translexp.ml	\
 	intermediate/translexp.mli	\
+	intermediate/closure.ml		\
+	intermediate/closure.mli	\
 	toplevel.ml
 
 OBJECTS=$(patsubst %.ml,%.cmo,$(patsubst %.mli,%.cmi,$(SOURCES))) \

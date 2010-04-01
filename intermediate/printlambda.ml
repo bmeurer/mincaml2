@@ -55,6 +55,12 @@ let print_primitive ppf = function
       fprintf ppf "getfield %i" n
   | Pextcall(prim) ->
       fprintf ppf "%s" prim.prim_name
+  | Paddaddr ->
+      fprintf ppf "+a"
+  | Psubaddr ->
+      fprintf ppf "-a"
+  | Paddrcmp(cmp) ->
+      fprintf ppf "%aa" print_comparison cmp
   | Pnegint ->
       fprintf ppf "~"
   | Paddint ->
