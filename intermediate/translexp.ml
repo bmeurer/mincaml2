@@ -88,21 +88,39 @@ let primitives = HashtblUtils.create 33
 let translate_primitive gamma prim tau lambdal = 
   try
     let cmp = Hashtbl.find primitive_comparisons prim.prim_name in
-      (* TODO - this is broken, since alpha is also an instance of int!!!!! *)
-      if (instance_of gamma tau (type_arrow type_int (type_arrow type_int type_bool))
-          || instance_of gamma tau (type_arrow type_char (type_arrow type_char type_bool))) then
-        Lprim(Pintcmp(cmp), lambdal)
-      else if instance_of gamma tau (type_arrow type_float (type_arrow type_float type_bool)) then
-        Lprim(Pfloatcmp(cmp), lambdal)
-      else if instance_of gamma tau (type_arrow type_int32 (type_arrow type_int32 type_bool)) then
-        Lprim(Pbintcmp(Pint32, cmp), lambdal)
-      else if instance_of gamma tau (type_arrow type_int64 (type_arrow type_int64 type_bool)) then
-        Lprim(Pbintcmp(Pint64, cmp), lambdal)
-      else if instance_of gamma tau (type_arrow type_nativeint (type_arrow type_nativeint type_bool)) then
-        Lprim(Pbintcmp(Pnativeint, cmp), lambdal)
-      else
-        Lprim(Pintcmp(cmp), [Lprim(Pcompare, lambdal);
-                             Lconst(Sconst_base(Const_int(0)))])
+      try
+        begin match (Typing.expand_head gamma tau).typ_desc with
+          | Tarrow(tau, _) ->
+              begin match (Typing.expand_head gamma tau).typ_desc, lambdal with
+                (* Case 1: int/char comparison *)
+                | Tconstruct(id, _), lambdal when Ident.equal id ident_int || Ident.equal id ident_char ->
+                    Lprim(Pintcmp(cmp), lambdal)
+                (* Case 2: float comparison *)
+                | Tconstruct(id, _), lambdal when Ident.equal id ident_float ->
+                    Lprim(Pfloatcmp(cmp), lambdal)
+                (* Case 3: int32 comparison *)
+                | Tconstruct(id, _), lambdal when Ident.equal id ident_int32 ->
+                    Lprim(Pbintcmp(Pint32, cmp), lambdal)
+                (* Case 4: int64 comparison *)
+                | Tconstruct(id, _), lambdal when Ident.equal id ident_int64 ->
+                    Lprim(Pbintcmp(Pint64, cmp), lambdal)
+                (* Case 5: nativeint comparison *)
+                | Tconstruct(id, _), lambdal when Ident.equal id ident_nativeint ->
+                    Lprim(Pbintcmp(Pnativeint, cmp), lambdal)
+                (* Case 6: comparing an integer (constant constructor) with sth else *)
+                | _, ((Lconst(Sconst_base(Const_int(_)))) :: _ as lambdal)
+                | _, (_ :: (Lconst(Sconst_base(Const_int(_)))) :: _ as lambdal) when cmp = Ceq || cmp = Cne ->
+                    Lprim(Paddrcmp(cmp), lambdal)
+                | _ ->
+                    raise Exit
+              end
+          | _ ->
+              raise Exit
+        end
+      with
+        | Exit ->
+            Lprim(Paddrcmp(cmp), [Lprim(Pcompare, lambdal);
+                                  Lconst(Sconst_base(Const_int(0)))])
   with
     | Not_found ->
         Lprim((try

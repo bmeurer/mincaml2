@@ -121,6 +121,12 @@ let expand gamma tau =
     | _ ->
         tau
 
+(* TODO - required for translexp.ml *)
+let rec expand_head gamma tau =
+  let tau' = expand gamma (repr tau) in
+    if tau' == tau then tau
+    else expand_head gamma tau'
+
 (* Unification *)
 let rec unify gamma tau1 tau2 =
   if tau1 == tau2 then () else
@@ -165,14 +171,6 @@ let rec unify gamma tau1 tau2 =
               raise (Unify_error([tau1, tau2]))
           | Unify_error(taupl) ->
               raise (Unify_error((tau1, tau2) :: taupl))
-
-(* Check if tau1 is an instance of tau2 *)
-let instance_of gamma tau1 tau2 =
-  try
-    unify gamma (instantiate tau1) (instantiate tau2);
-    true
-  with
-    | Unify_error(_) -> false
 
 (******************************************************)
 (*** Translating parsed types and type declarations ***)
