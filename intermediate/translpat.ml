@@ -243,9 +243,9 @@ let raise_match_failure loc =
   let line = pos.Lexing.pos_lnum in
   let char = pos.Lexing.pos_cnum - pos.Lexing.pos_bol in
     Lprim(Praise,
-          [Lprim(Pmakeblock(0, Immutable),
+          [Lprim(Pmakeblock(Lambda.make_header 0 2, Immutable),
                  [Lident(Typeenv.ident_match_failure);
-                  Lconst(Sconst_block(0,
+                  Lconst(Sconst_block(Lambda.make_header 0 3,
                                       [Sconst_base(Const_string(file));
                                        Sconst_base(Const_int(line));
                                        Sconst_base(Const_int(char))]))])])

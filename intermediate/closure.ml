@@ -3,14 +3,6 @@ open Lambda
 
 module IdentMap = Map.Make(Ident)
 
-(* Misc *)
-
-let build_offset n lambda =
-  if n = 0 then
-    lambda
-  else
-    Lprim(Paddaddr, [lambda; Lconst(Sconst_base(Const_int(n)))])
-
 (* Approximation of values at compile time *)
 type approximation =
   | Approx_unknown
@@ -19,6 +11,42 @@ type approximation =
 and function_description =
     { fun_label: Ident.t;
       fun_arity: int }
+
+
+(*********************)
+(*** Miscellaneous ***)
+(*********************)
+
+let build_curry toplevel arity =
+  let id = Ident.create ("mincaml2_curry" ^ (string_of_int arity)) in
+    if not (List.mem_assoc id !toplevel) then begin
+      
+    end;
+    id
+  
+let build_closure toplevel fundesc =
+  assert (fundesc.fun_arity > 0);
+  if fundesc.fun_arity = 1 then begin
+    [Lconst(Sconst_pointer(Lambda.make_header Lambda.tag_closure 0));
+     Lident(fundesc.fun_label);
+     Lconst(Sconst_base(Const_int(fundesc.fun_arity)))]
+  end else begin
+    [Lconst(Sconst_pointer(Lambda.make_header Lambda.tag_closure 0));
+     Lident(build_curry toplevel fundesc.fun_arity);
+     Lconst(Sconst_base(Const_int(fundesc.fun_arity)));
+     Lident(fundesc.fun_label)]
+  end
+
+let build_offset n lambda =
+  if n = 0 then
+    lambda
+  else
+    Lprim(Paddaddr, [lambda; Lconst(Sconst_base(Const_int(n)))])
+
+
+(**************************)
+(*** Closure conversion ***)
+(**************************)
 
 let rec close toplevel aenv cenv = function
   | Lconst(_) as lambda ->
@@ -128,20 +156,27 @@ and close_letrec toplevel aenv cenv idlambdal lambda =
                   cenv
                   fundefl) in
     let lambda, approx = close toplevel aenv_rec cenv lambda in
-      id, offset0, Lfunction(id0 :: idl, lambda), Approx_closure(fundesc, approx) in
+      id, offset0, fundesc, Lfunction(id0 :: idl, lambda), Approx_closure(fundesc, approx) in
   let closl = List.map close_fundef fundefl in
   let id0 = Ident.create "clos" in
   let lid0 = Lident(id0) in
   let aenv_body = ref aenv in
   let cenv_body = ref cenv in
+  let cblock = ref [] in
     (List.iter 
-       (fun (id, offset, lambda, approx) ->
+       (fun (id, offset, fundesc, lambda, approx) ->
           toplevel := (id, lambda) :: !toplevel;
           aenv_body := IdentMap.add id approx !aenv_body;
-          cenv_body := IdentMap.add id (build_offset offset lid0) !cenv_body)
+          cenv_body := IdentMap.add id (build_offset offset lid0) !cenv_body;
+          cblock := !cblock @ (build_closure toplevel fundesc))
        closl);
     let lambda, approx = close toplevel !aenv_body !cenv_body lambda in
-      Llet(id0, Lconst(Sconst_base(Const_string("TODO_closure"))), lambda), approx
+      begin match !cblock @ (List.map (fun id -> Lident(id)) fvl) with
+        | Lconst(Sconst_pointer(header)) :: lambdal ->
+            Llet(id0, Lprim(Pmakeblock(header, Immutable), lambdal), lambda), approx
+        | _ ->
+            assert false
+      end
 
 let close_lambda lambda =
   let toplevel = ref [] in

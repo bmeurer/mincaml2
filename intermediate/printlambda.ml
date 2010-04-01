@@ -24,11 +24,15 @@ let rec print_structured_constant ppf = function
       fprintf ppf "%S" s
   | Sconst_base(Const_nativeint(n)) ->
       fprintf ppf "%nin" n
-  | Sconst_block(tag, []) ->
-      fprintf ppf "[%i]" tag
-  | Sconst_block(tag, sc :: scl) ->
+  | Sconst_pointer(n) ->
+      fprintf ppf "%nia" n
+  | Sconst_block(header, []) ->
+      let tag, wosize = Lambda.split_header header in
+        fprintf ppf "[(%i, %i)]" tag wosize
+  | Sconst_block(header, sc :: scl) ->
+      let tag, wosize = Lambda.split_header header in
       let print ppf scl = List.iter (fun sc -> fprintf ppf "@ %a" print_structured_constant sc) scl in
-        fprintf ppf "@[<1>[%i:@ @[%a%a@]]@]" tag print_structured_constant sc print scl
+        fprintf ppf "@[<1>[(%i, %i):@ @[%a%a@]]@]" tag wosize print_structured_constant sc print scl
 
 let print_comparison ppf = function
   | Ceq -> fprintf ppf "="
@@ -47,10 +51,12 @@ let print_primitive ppf = function
       fprintf ppf "raise"
   | Pcompare ->
       fprintf ppf "compare"
-  | Pmakeblock(tag, Mutable) ->
-      fprintf ppf "makemutblock %i" tag
-  | Pmakeblock(tag, Immutable) ->
-      fprintf ppf "makeimmblock %i" tag
+  | Pmakeblock(header, Mutable) ->
+      let tag, wosize = Lambda.split_header header in
+        fprintf ppf "makemutblock (%i, %i)" tag wosize
+  | Pmakeblock(header, Immutable) ->
+      let tag, wosize = Lambda.split_header header in
+        fprintf ppf "makeimmblock (%i, %i)" tag wosize
   | Pgetfield(n) ->
       fprintf ppf "getfield %i" n
   | Pextcall(prim) ->

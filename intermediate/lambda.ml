@@ -17,7 +17,7 @@ and primitive =
   | Praise
   | Pcompare
   (* Operations on heap blocks *)
-  | Pmakeblock of int * mutable_flag
+  | Pmakeblock of nativeint * mutable_flag
   | Pgetfield of int
   (* External call *)
   | Pextcall of Primitive.description
@@ -40,7 +40,8 @@ and primitive =
 
 and structured_constant =
   | Sconst_base of constant
-  | Sconst_block of int * structured_constant list
+  | Sconst_pointer of nativeint
+  | Sconst_block of nativeint * structured_constant list
 
 and lambda =
   | Lconst of structured_constant
@@ -66,7 +67,21 @@ and lambda_switch =
 
 module IdentSet = Set.Make(Ident)
 
+let tag_closure = 255
+
 let lambda_unit = Lconst(Sconst_base(Const_int(0)))
+
+let make_header tag wosize =
+  assert (tag >=0 && tag < (1 lsl 8));
+  assert (wosize >= 0 && wosize < (1 lsl ((Sys.word_size - 1) * 8)));
+  let tag = Nativeint.of_int tag in
+  let wosize = Nativeint.of_int wosize in
+    Nativeint.logor (Nativeint.shift_left wosize 8) tag
+
+let split_header header =
+  let tag = Nativeint.logand header 0xffn in
+  let wosize = Nativeint.shift_right header 8 in
+    Nativeint.to_int tag, Nativeint.to_int wosize
 
 let fv lambda =
   let fvs = ref IdentSet.empty in

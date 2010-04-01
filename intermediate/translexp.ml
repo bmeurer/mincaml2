@@ -167,10 +167,11 @@ let rec translate_exp exp =
                    translate_match (Lprim(Praise, [lid])) lid (translate_casel casel))
     | Texp_tuple(expl) ->
         let lambdal = translate_exp_list expl in
+        let header = Lambda.make_header 0 (List.length lambdal) in
           begin try
-            Lconst(Sconst_block(0, List.map extract_constant lambdal))
+            Lconst(Sconst_block(header, List.map extract_constant lambdal))
           with
-            | Not_constant -> Lprim(Pmakeblock(0, Immutable), lambdal)
+            | Not_constant -> Lprim(Pmakeblock(header, Immutable), lambdal)
           end
     | Texp_construct(cstr, expl) ->
         let lambdal = translate_exp_list expl in
@@ -178,13 +179,15 @@ let rec translate_exp exp =
             | Cstr_constant(tag) ->
                 Lconst(Sconst_base(Const_int(tag)))
             | Cstr_block(tag) ->
-                begin try
-                  Lconst(Sconst_block(tag, List.map extract_constant lambdal))
-                with
-                  | Not_constant -> Lprim(Pmakeblock(0, Immutable), lambdal)
+                let header = Lambda.make_header tag (List.length lambdal) in
+                  begin try
+                    Lconst(Sconst_block(header, List.map extract_constant lambdal))
+                  with
+                    | Not_constant -> Lprim(Pmakeblock(header, Immutable), lambdal)
                 end
             | Cstr_exception(id) ->
-                Lprim(Pmakeblock(0, Immutable), (Lident(id)) :: lambdal)
+                let header = Lambda.make_header 0 (1 + List.length lambdal) in
+                  Lprim(Pmakeblock(header, Immutable), (Lident(id)) :: lambdal)
           end
     | Texp_ifthenelse(exp0, exp1, None) ->
         Lifthenelse(translate_exp exp0, translate_exp exp1, lambda_unit)
@@ -237,7 +240,8 @@ and translate_structure = function
   | Tstr_exn(id, taul) :: str ->
       (* TODO - This let may not be substituted *)
       Llet(id,
-           Lprim(Pmakeblock(0, Immutable), [Lconst(Sconst_base(Const_string(Ident.name id)))]),
+           Lprim(Pmakeblock(Lambda.make_header 0 1, Immutable),
+                 [Lconst(Sconst_base(Const_string(Ident.name id)))]),
            translate_structure str)
   | Tstr_external(_) :: str ->
       translate_structure str
