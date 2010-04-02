@@ -67,6 +67,7 @@ and lambda_switch =
 
 module IdentSet = Set.Make(Ident)
 
+let tag_custom = 254
 let tag_closure = 255
 
 let lambda_unit = Lconst(Sconst_base(Const_int(0)))

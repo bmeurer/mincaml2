@@ -53,11 +53,12 @@ OCAMLDEP=ocamldep.opt
 OCAMLDEPFLAGS=$(OCAMLCOMMONFLAGS)
 OCAMLOPT=ocamlopt.opt
 OCAMLOPTFLAGS=$(OCAMLCFLAGS)
+OCAMLLINKFLAGS=$(OCAMLOPTFLAGS) -cclib -L/opt/local/lib -cclib -lstdc++
 
 all: toplevel
 
 toplevel: $(filter %.cmo,$(OBJECTS))
-	$(OCAMLC) $(OCAMLOPTFLAGS) -o $@ $^
+	$(OCAMLC) $(OCAMLLINKFLAGS) llvm.cma llvm_analysis.cma llvm_bitwriter.cma llvm_scalar_opts.cma -o $@ $^
 
 .SUFFIXES: .ml .mli .mll .mly .cmi .cmo .cmx
 

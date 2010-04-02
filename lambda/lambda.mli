@@ -67,6 +67,7 @@ and lambda_switch =
 
 module IdentSet: Set.S with type elt = Ident.t
 
+val tag_custom: int
 val tag_closure: int
 
 val lambda_unit: lambda

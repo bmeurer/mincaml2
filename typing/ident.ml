@@ -22,7 +22,7 @@ let name id =
 
 let unique_name id =
   if id.stamp >= 0 then
-    id.name ^ "_" ^ (string_of_int id.stamp)
+    id.name ^ "__" ^ (string_of_int id.stamp)
   else
     id.name
 

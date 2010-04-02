@@ -83,6 +83,9 @@ let primitives = HashtblUtils.create 33
     "%lslint",    Plslint;
     "%lsrint",    Plsrint;
     "%asrint",    Pasrint;
+    "%negfloat",  Pnegfloat;
+    "%addfloat",  Paddfloat;
+    (* TODO *)
   ]
 
 let translate_primitive gamma prim tau lambdal = 
