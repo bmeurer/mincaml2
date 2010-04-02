@@ -20,6 +20,12 @@ let create_tmp i =
 let name id =
   id.name
 
+let unique_name id =
+  if id.stamp >= 0 then
+    id.name ^ "_" ^ (string_of_int id.stamp)
+  else
+    id.name
+
 let compare id1 id2 =
   let c = id1.stamp - id2.stamp in
     if c <> 0 then
