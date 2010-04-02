@@ -72,10 +72,10 @@ let tag_closure = 255
 let lambda_unit = Lconst(Sconst_base(Const_int(0)))
 
 let make_header tag wosize =
-  assert (tag >=0 && tag < (1 lsl 8));
-  assert (wosize >= 0 && wosize < (1 lsl ((Sys.word_size - 1) * 8)));
+  assert (tag >= 0 && tag < (1 lsl 8));
+  assert (wosize > 0 && wosize < (1 lsl ((Sys.word_size - 1) * 8)) - 1);
   let tag = Nativeint.of_int tag in
-  let wosize = Nativeint.of_int wosize in
+  let wosize = Nativeint.of_int (wosize + 1) in
     Nativeint.logor (Nativeint.shift_left wosize 8) tag
 
 let split_header header =

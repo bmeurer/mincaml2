@@ -105,11 +105,11 @@ let build_closure toplevel fundesc =
                  fundesc.fun_label
                end) in
   if fundesc.fun_arity = 1 then begin
-    [Lconst(Sconst_pointer(Lambda.make_header Lambda.tag_closure 0));
+    [Lconst(Sconst_pointer(Lambda.make_header Lambda.tag_closure 1 (* TODO *)));
      Lident(label);
      Lconst(Sconst_base(Const_int(fundesc.fun_arity)))]
   end else begin
-    [Lconst(Sconst_pointer(Lambda.make_header Lambda.tag_closure 0));
+    [Lconst(Sconst_pointer(Lambda.make_header Lambda.tag_closure 1 (* TODO *)));
      Lident(build_curry toplevel fundesc.fun_arity);
      Lconst(Sconst_base(Const_int(fundesc.fun_arity)));
      Lident(label)]
