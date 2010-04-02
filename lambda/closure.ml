@@ -314,7 +314,9 @@ and close_letrec toplevel aenv cenv idlambdal lambda =
     let lambda, approx = close toplevel !aenv_body !cenv_body lambda in
       begin match !cblock @ (List.map (fun id -> Lident(id)) fvl) with
         | Lconst(Sconst_pointer(header)) :: lambdal ->
-            Llet(id0, Lprim(Pmakeblock(header, Immutable), lambdal), lambda), approx
+            let tag, _ = Lambda.split_header header in
+            let header = Lambda.make_header tag (List.length lambdal) in
+              Llet(id0, Lprim(Pmakeblock(header, Immutable), lambdal), lambda), approx
         | _ ->
             assert false
       end
