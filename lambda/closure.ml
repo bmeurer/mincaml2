@@ -37,7 +37,7 @@ let build_apply_function arity =
               if arity = 1 then begin
                 apply clos 0 
               end else begin
-                Lifthenelse(Lprim(Paddrcmp(Ceq),
+                Lifthenelse(Lprim(Pintcmp(Ceq),
                                   [Lprim(Pfield(1), [Lident(clos)]);
                                    Lconst(Sconst_base(Const_int(arity)))]),
                             Lapply(Lprim(Pfield(2), [Lident(clos)]),
@@ -119,7 +119,7 @@ let build_offset n lambda =
   if n = 0 then
     lambda
   else
-    Lprim(Paddaddr, [lambda; Lconst(Sconst_base(Const_int(n)))])
+    Lprim(Poffset(n), [lambda])
 
 (* TODO *)
 let rec is_pure = function

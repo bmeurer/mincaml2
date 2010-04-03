@@ -64,7 +64,6 @@ let h y l =
 ;;
 *)
 
-
 let rec foldl f a l =
   match l with
     | [] -> a
@@ -72,5 +71,3 @@ let rec foldl f a l =
 ;;
 
 foldl (+) 1 [1;2;3];;
-
-

@@ -69,8 +69,8 @@ let primitives = HashtblUtils.create 33
     "%compare",    Pcompare;
     "%field0",     Pfield(0);
     "%field1",     Pfield(1);
-    "%eq",         Paddrcmp(Ceq);
-    "%noteq",      Paddrcmp(Cne);
+    "%eq",         Pintcmp(Ceq);
+    "%noteq",      Pintcmp(Cne);
     "%negint",     Pnegint;
     "%addint",     Paddint;
     "%subint",     Psubint;
@@ -118,7 +118,7 @@ let translate_primitive gamma prim tau lambdal =
                 (* Case 6: comparing an integer (constant constructor) with sth else *)
                 | _, ((Lconst(Sconst_base(Const_int(_)))) :: _ as lambdal)
                 | _, (_ :: (Lconst(Sconst_base(Const_int(_)))) :: _ as lambdal) when cmp = Ceq || cmp = Cne ->
-                    Lprim(Paddrcmp(cmp), lambdal)
+                    Lprim(Pintcmp(cmp), lambdal)
                 | _ ->
                     raise Exit
               end
@@ -127,8 +127,8 @@ let translate_primitive gamma prim tau lambdal =
         end
       with
         | Exit ->
-            Lprim(Paddrcmp(cmp), [Lprim(Pcompare, lambdal);
-                                  Lconst(Sconst_base(Const_int(0)))])
+            Lprim(Pintcmp(cmp), [Lprim(Pcompare, lambdal);
+                                 Lconst(Sconst_base(Const_int(0)))])
   with
     | Not_found ->
         Lprim((try

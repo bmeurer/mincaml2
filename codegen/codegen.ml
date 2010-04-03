@@ -10,6 +10,7 @@ type t =
       cg_manager:         [`Function] Llvm.PassManager.t;
 
       cg_i1_type:         Llvm.lltype;
+      cg_i8_type:         Llvm.lltype;
       cg_i32_type:        Llvm.lltype;
       cg_int_type:        Llvm.lltype;
       cg_float_type:      Llvm.lltype;
@@ -23,6 +24,9 @@ type t =
 (*** Miscellaneous ***)
 (*********************)
 
+let const_i8 n cg =
+  Llvm.const_int cg.cg_i8_type n
+
 let const_i32 n cg =
   Llvm.const_int cg.cg_i32_type n
 
@@ -35,22 +39,15 @@ let const_pointer n cg =
 let const_float f cg =
   Llvm.const_float_of_string cg.cg_float_type f
 
-let const_header tag ty cg =
-  assert (tag >= 0 && tag < 256);
-  let sizeof_ty = Llvm.size_of ty in
-  let sizeof_value = Llvm.size_of cg.cg_value_type in
-  let sizeof_ty = Llvm.const_add sizeof_ty (Llvm.const_sub sizeof_value (const_int 1 cg)) in
-  let wosize = Llvm.const_udiv sizeof_ty sizeof_value in
-  let tag = const_int tag cg in
-    Llvm.const_inttoptr (Llvm.const_or tag (Llvm.const_shl wosize (const_int 8 cg))) cg.cg_value_type
-
-let const_string name s cg =
+let const_string s cg =
   let slen = String.length s in
-  let vty = Llvm.array_type (Llvm.i8_type cg.cg_context) (slen + 1) in
-  let vty = Llvm.struct_type cg.cg_context [|cg.cg_value_type; vty|] in
-  let vhdr = const_header Lambda.tag_string vty cg in
-  let v = Llvm.const_struct cg.cg_context [|vhdr; Llvm.const_stringz cg.cg_context s|] in
-    Llvm.define_global name v cg.cg_module
+  let wobsize = Sys.word_size / 8 in
+  let swosize = (slen + wobsize) / wobsize in
+  let varray = Array.make (swosize * wobsize) (const_i8 0 cg) in
+  for i = 0 to slen - 1 do varray.(i) <- const_i8 (int_of_char (String.get s i)) cg done;
+  let vhdr = const_pointer (Lambda.make_header Lambda.tag_string swosize) cg in
+  let v = Llvm.const_struct cg.cg_context [|vhdr; Llvm.const_array cg.cg_i8_type varray|] in
+    Llvm.define_global "" v cg.cg_module
 
 let build_box v cg =
   match Llvm.type_of v with
@@ -65,14 +62,16 @@ let build_box v cg =
         let v = Llvm.build_or v (const_int 1 cg) "" cg.cg_builder in
           Llvm.build_inttoptr v cg.cg_value_type "" cg.cg_builder
     | ty when ty = cg.cg_float_type && Llvm.is_constant v ->
-        let vhdr = const_header Lambda.tag_float cg.cg_floatblk_type cg in
+        let vwosize = 8 / ((Sys.word_size / 8)) in
+        let vhdr = const_pointer (Lambda.make_header Lambda.tag_float vwosize) cg in
         let v = Llvm.const_struct cg.cg_context (Array.of_list [vhdr; v]) in
         let v = Llvm.define_global "" v cg.cg_module in
           Llvm.set_global_constant true v;
           Llvm.set_linkage Llvm.Linkage.Private v;
           Llvm.const_pointercast v cg.cg_value_type
     | ty when ty = cg.cg_float_type ->
-        let vhdr = const_header Lambda.tag_float cg.cg_floatblk_type cg in
+        let vwosize = 8 / ((Sys.word_size / 8)) in
+        let vhdr = const_pointer (Lambda.make_header Lambda.tag_float vwosize) cg in
         let vptr = Llvm.build_call cg.cg_alloc_func [|vhdr|] "" cg.cg_builder in
         let fbptr = Llvm.build_pointercast vptr (Llvm.pointer_type cg.cg_floatblk_type) "" cg.cg_builder in
         let fptr = Llvm.build_gep fbptr [|const_i32 0 cg; const_i32 1 cg|] "" cg.cg_builder in
@@ -108,7 +107,7 @@ let build_phi phil cg =
         Llvm.undef cg.cg_value_type
     | (v1, _) :: _ ->
         (* allocate the basicblock for the phi *)
-        let bbphi = Llvm.append_block cg.cg_context "" (Llvm.block_parent (Llvm.insertion_block cg.cg_builder)) in
+        let bbphi = Llvm.append_block cg.cg_context "phi" (Llvm.block_parent (Llvm.insertion_block cg.cg_builder)) in
         (* check if we need to box the values *)
         let boxing = List.exists (fun (v, _) -> Llvm.type_of v <> Llvm.type_of v1) phil in
         (* generate the (optional) boxing and the br's to the phi node *)
@@ -201,9 +200,9 @@ and generate_switch cg env cont lambda switch =
   (* determine the initial basicblock *)
   let bb0 = Llvm.insertion_block cg.cg_builder in
   (* allocate the continuation block for the const switch *)
-  let bb1 = Llvm.append_block cg.cg_context "" (Llvm.block_parent bb0) in
+  let bb1 = Llvm.append_block cg.cg_context "consts" (Llvm.block_parent bb0) in
   (* allocate the continuation block for the block switch *)
-  let bb2 = Llvm.append_block cg.cg_context "" (Llvm.block_parent bb0) in
+  let bb2 = Llvm.append_block cg.cg_context "blocks" (Llvm.block_parent bb0) in
   (* initialize the phi collector list *)
   let phil = ref [] in
   (* setup the const switch *)
@@ -212,7 +211,7 @@ and generate_switch cg env cont lambda switch =
   let sw1 = Llvm.build_switch v1 bb1 switch.sw_numconsts cg.cg_builder in
     (List.iter
        (fun (tag, lambda) ->
-          let bb = Llvm.append_block cg.cg_context "" (Llvm.block_parent bb0) in
+          let bb = Llvm.append_block cg.cg_context "case" (Llvm.block_parent bb0) in
           let tag = Llvm.const_or (Llvm.const_shl (const_int tag cg) (const_int 1 cg)) (const_int 1 cg) in
             Llvm.add_case sw1 tag bb;
             Llvm.position_at_end bb cg.cg_builder;
@@ -226,7 +225,7 @@ and generate_switch cg env cont lambda switch =
   let sw2 = Llvm.build_switch v2 bb2 switch.sw_numblocks cg.cg_builder in
     (List.iter
        (fun (tag, lambda) ->
-          let bb = Llvm.append_block cg.cg_context "" (Llvm.block_parent bb0) in
+          let bb = Llvm.append_block cg.cg_context "case" (Llvm.block_parent bb0) in
             Llvm.add_case sw2 (const_int tag cg) bb;
             Llvm.position_at_end bb cg.cg_builder;
             let v = generate cg env cont lambda in
@@ -289,49 +288,36 @@ and generate_prim cg env cont p lambdal =
         assert false (* TODO *)
     | Pcompare, _ ->
         assert false (* TODO *)
-    | Pmakeblock(header, Immutable), vl when List.for_all (fun v -> Llvm.is_constant v
-                                                             || Llvm.is_global_constant v) vl ->
-        let vhdr = const_pointer header cg in
-        let v = Llvm.const_array cg.cg_value_type (Array.of_list (vhdr :: vl)) in
-        let v = Llvm.define_global "" v cg.cg_module in
-          Llvm.set_global_constant true v;
-          Llvm.set_linkage Llvm.Linkage.Private v;
-          v
     | Pmakeblock(header, Immutable), vl ->
-        let vhdr = const_pointer header cg in
-        let v = Llvm.build_call cg.cg_alloc_func [|vhdr|] "" cg.cg_builder in
-        let vptr = Llvm.build_pointercast v (Llvm.pointer_type cg.cg_value_type) "" cg.cg_builder in
-          (Array.iteri
-             (fun i v ->
-                let vbox = build_box v cg in
-                let vptr = Llvm.build_gep vptr [|const_i32 i cg|] "" cg.cg_builder in
-                  ignore (Llvm.build_store vbox vptr cg.cg_builder))
-             (Array.of_list vl));
-          v
+        let vl = List.map (fun v -> build_box v cg) vl in
+          if List.for_all (fun v -> Llvm.is_constant v || Llvm.is_global_constant v) vl then begin
+            let vhdr = const_pointer header cg in
+            let v = Llvm.const_array cg.cg_value_type (Array.of_list (vhdr :: vl)) in
+            let v = Llvm.define_global "" v cg.cg_module in
+              Llvm.set_global_constant true v;
+              Llvm.set_linkage Llvm.Linkage.Private v;
+              v
+          end else begin
+            let vhdr = const_pointer header cg in
+            let v = Llvm.build_call cg.cg_alloc_func [|vhdr|] "" cg.cg_builder in
+            let vptr = Llvm.build_pointercast v (Llvm.pointer_type cg.cg_value_type) "" cg.cg_builder in
+              (Array.iteri
+                 (fun i v ->
+                    let vptr = Llvm.build_gep vptr [|const_i32 i cg|] "" cg.cg_builder in
+                      ignore (Llvm.build_store v vptr cg.cg_builder))
+                 (Array.of_list vl));
+              v
+          end
     | Pmakeblock(_), _ ->
         assert false (* TODO *)
     | Pfield(n), [v] ->
         let v = Llvm.build_pointercast v (Llvm.pointer_type cg.cg_value_type) "" cg.cg_builder in
         let v = Llvm.build_gep v [|const_i32 (n + 1) cg|] "" cg.cg_builder in
           Llvm.build_load v "" cg.cg_builder
+    | Poffset(n), [v] ->
+        Llvm.build_gep (build_box v cg) [|const_int n cg|] "" cg.cg_builder
     | Pextcall(_), _ ->
         assert false (* TODO *)
-    | Paddaddr, [v1; v2] ->
-        let v1 = build_box v1 cg in
-        let v2 = build_unbox v2 cg.cg_int_type cg in
-          Llvm.build_gep v1 [|v2|] "" cg.cg_builder
-    | Psubaddr, [v1; v2] ->
-        let v1 = build_box v1 cg in
-        let v2 = Llvm.build_neg (build_unbox v2 cg.cg_int_type cg) "" cg.cg_builder in
-          Llvm.build_gep v1 [|v2|] "" cg.cg_builder
-    | Paddrcmp(cmp), [v1; v2] ->
-        let v1 = build_box v1 cg in
-        let v2 = build_box v2 cg in
-        let icmp = (match cmp with
-                      | Ceq -> Llvm.Icmp.Eq  | Cne -> Llvm.Icmp.Ne
-                      | Clt -> Llvm.Icmp.Ult | Cgt -> Llvm.Icmp.Ugt
-                      | Cle -> Llvm.Icmp.Ule | Cge -> Llvm.Icmp.Uge) in
-          Llvm.build_icmp icmp v1 v2 "" cg.cg_builder
     | Pnegint, [v1] ->
         Llvm.build_neg (build_unbox v1 cg.cg_int_type cg) "" cg.cg_builder
     | (Paddint | Psubint | Pmulint  | Pdivint | Pmodint
@@ -352,8 +338,10 @@ and generate_prim cg env cont p lambdal =
              | Pasrint -> Llvm.build_ashr
              | _ -> assert false) v1 v2 "" cg.cg_builder
     | Pintcmp(cmp), [v1; v2] ->
-        let v1 = build_unbox v1 cg.cg_int_type cg in
-        let v2 = build_unbox v2 cg.cg_int_type cg in
+        let v1, v2 = (if Llvm.type_of v1 = cg.cg_int_type && Llvm.type_of v2 = cg.cg_int_type then
+                        v1, v2
+                      else
+                        build_box v1 cg, build_box v2 cg) in
         let icmp = (match cmp with
                       | Ceq -> Llvm.Icmp.Eq  | Cne -> Llvm.Icmp.Ne
                       | Clt -> Llvm.Icmp.Slt | Cgt -> Llvm.Icmp.Sgt
@@ -385,12 +373,12 @@ and generate_sconst cg = function
   | Sconst_pointer(a) ->
       const_pointer a cg
   | Sconst_immstring(s) ->
-      let v = const_string "" s cg in
+      let v = const_string s cg in
         Llvm.set_global_constant true v;
         Llvm.set_linkage Llvm.Linkage.Internal v;
         v
   | Sconst_block(header, scl) ->
-      let vl = List.map (fun sc -> Llvm.const_pointercast (generate_sconst cg sc) cg.cg_value_type) scl in
+      let vl = List.map (fun sc -> build_box (generate_sconst cg sc) cg) scl in
       let vhdr = const_pointer header cg in
       let v = Llvm.const_array cg.cg_value_type (Array.of_list (vhdr :: vl)) in
       let v = Llvm.define_global "" v cg.cg_module in
@@ -410,7 +398,7 @@ and generate_const cg = function
   | Const_int64(_) ->
       assert false (* TODO *)
   | Const_string(s) ->
-      let v = const_string "" s cg in
+      let v = const_string s cg in
         Llvm.set_linkage Llvm.Linkage.Private v;
         v
   | Const_nativeint(_) ->
@@ -423,12 +411,13 @@ let create () =
   let cg_builder = Llvm.builder cg_context in
   let cg_manager = Llvm.PassManager.create_function cg_module in
   let cg_i1_type = Llvm.i1_type cg_context in
+  let cg_i8_type = Llvm.i8_type cg_context in
   let cg_i32_type = Llvm.i32_type cg_context in
   let cg_int_type = Llvm.integer_type cg_context Sys.word_size in
   let cg_float_type = Llvm.double_type cg_context in
   let cg_value_type = Llvm.pointer_type cg_int_type in
   let cg_floatblk_type = Llvm.struct_type cg_context [|cg_value_type; cg_float_type|] in
-  let cg_alloc_func = Llvm.declare_function "mincaml2_alloc" (Llvm.function_type cg_value_type [|cg_value_type|]) cg_module in
+  let cg_alloc_func = Llvm.declare_function "mc2_alloc" (Llvm.function_type cg_value_type [|cg_value_type|]) cg_module in
     ignore (Llvm.define_type_name "value" cg_value_type cg_module);
     ignore (Llvm.define_type_name "floatblk" cg_floatblk_type cg_module);
     Llvm_scalar_opts.add_instruction_combination cg_manager;
@@ -442,6 +431,7 @@ let create () =
       cg_builder = cg_builder;
       cg_manager = cg_manager;
       cg_i1_type = cg_i1_type;
+      cg_i8_type = cg_i8_type;
       cg_i32_type = cg_i32_type;
       cg_int_type = cg_int_type;
       cg_float_type = cg_float_type;
@@ -450,10 +440,12 @@ let create () =
       cg_alloc_func = cg_alloc_func }
 
 let generate_predefined_exn id cg =
-  let v = const_string (Ident.unique_name id) (Ident.name id) cg in
+  let slen = String.length (Ident.name id) in
+  let slen = ((slen + (Sys.word_size / 8)) / (Sys.word_size / 8)) * (Sys.word_size / 8) in
+  let sty = Llvm.struct_type cg.cg_context [|cg.cg_value_type; (Llvm.array_type cg.cg_i8_type slen)|] in
+  let v = Llvm.declare_global sty (Ident.unique_name id) cg.cg_module in
     Llvm.set_global_constant true v;
-    Llvm.set_visibility Llvm.Visibility.Protected v;
-    v
+    Llvm.const_pointercast v cg.cg_value_type
 
 
 (********************)
@@ -473,18 +465,18 @@ let dump lambda =
                  Typeenv.ident_failure;
                  Typeenv.ident_not_found;
                  Typeenv.ident_division_by_zero]) in
-  let entry = Llvm.declare_function "entry" (Llvm.function_type cg.cg_int_type [||]) cg.cg_module in
-  Llvm.set_visibility Llvm.Visibility.Protected entry;
-  let bb = Llvm.append_block cg.cg_context "entry" entry in
+  (* generate the "entry" for this module *)
+  let entry = Llvm.declare_function "mc2_entry" (Llvm.function_type (Llvm.void_type cg.cg_context) [||]) cg.cg_module in
+  let bb = Llvm.append_block cg.cg_context "mc2_entry" entry in
     Llvm.position_at_end bb cg.cg_builder;
-    let v = generate cg env0 None lambda in
-      ignore (Llvm.build_ret (Llvm.build_intcast v cg.cg_int_type "" cg.cg_builder) cg.cg_builder);
-      Llvm_analysis.assert_valid_function entry;
-      ignore (Llvm.PassManager.run_function entry cg.cg_manager);
-      Llvm_analysis.assert_valid_module cg.cg_module;
-      begin
-        let mpm = Llvm.PassManager.create () in
-          ignore (Llvm.PassManager.run_module cg.cg_module mpm)
-      end;
-      Llvm.dump_module cg.cg_module;
-      ignore (Llvm_bitwriter.write_bitcode_file cg.cg_module "test.bc")
+    ignore (generate cg env0 None lambda);
+    ignore (Llvm.build_ret_void cg.cg_builder);
+    Llvm_analysis.assert_valid_function entry;
+    ignore (Llvm.PassManager.run_function entry cg.cg_manager);
+    Llvm_analysis.assert_valid_module cg.cg_module;
+    begin
+      let mpm = Llvm.PassManager.create () in
+        ignore (Llvm.PassManager.run_module cg.cg_module mpm)
+    end;
+    Llvm.dump_module cg.cg_module;
+    ignore (Llvm_bitwriter.write_bitcode_file cg.cg_module "test.bc")

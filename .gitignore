@@ -2,6 +2,7 @@
 .*.swp
 *.cm[iox]
 *.o
+*/*.a
 */*.cm[iox]
 */*.o
 parsing/lexer.ml

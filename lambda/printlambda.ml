@@ -61,14 +61,10 @@ let print_primitive ppf = function
         fprintf ppf "makeimmblock (%i, %i)" tag wosize
   | Pfield(n) ->
       fprintf ppf "field %i" n
+  | Poffset(n) ->
+      fprintf ppf "offset %i" n
   | Pextcall(prim) ->
       fprintf ppf "%s" prim.prim_name
-  | Paddaddr ->
-      fprintf ppf "+a"
-  | Psubaddr ->
-      fprintf ppf "-a"
-  | Paddrcmp(cmp) ->
-      fprintf ppf "%aa" print_comparison cmp
   | Pnegint ->
       fprintf ppf "~"
   | Paddint ->

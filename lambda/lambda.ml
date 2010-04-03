@@ -19,12 +19,9 @@ and primitive =
   (* Operations on heap blocks *)
   | Pmakeblock of nativeint * mutable_flag
   | Pfield of int
+  | Poffset of int
   (* External call *)
   | Pextcall of Primitive.description
-  (* Address operations *)
-  | Paddaddr
-  | Psubaddr
-  | Paddrcmp of comparison
   (* Integer operations *)
   | Pnegint
   | Paddint | Psubint | Pmulint | Pdivint | Pmodint
