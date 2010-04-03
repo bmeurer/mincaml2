@@ -1,6 +1,7 @@
 #include <gc/gc.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "runtime.h"
 
@@ -41,6 +42,50 @@ mc2_value_t mc2_alloc(mc2_header_t hd) {
   }
   mc2_hd_val(val) = hd;
   return val;
+}
+
+
+mc2_value_t mc2_alloc_custom(mc2_size_t bosize, const mc2_custom_operations_t *ops) {
+  mc2_value_t val;
+  mc2_value_t wosize;
+  
+  wosize = 2 + ((bosize + sizeof(mc2_value_t) - 1) / sizeof(mc2_value_t));
+  val = mc2_alloc(wosize << 8 | MC2_CUSTOM_TAG);
+  mc2_custom_operations_val(val) = ops;
+  return val;
+}
+
+
+static const mc2_custom_operations_t mc2_io_operations = { /* TODO */
+  NULL,
+  NULL
+};
+
+
+mc2_value_t mc2_open_descriptor_in(mc2_value_t fd) {
+  mc2_value_t val;
+
+  val = mc2_alloc_custom(sizeof(FILE*), &mc2_io_operations);
+  ((FILE **) mc2_custom_data_val(val))[0] = fdopen(mc2_int_val(fd), "r");
+  return val;
+}
+
+mc2_value_t mc2_open_descriptor_out(mc2_value_t fd) {
+  mc2_value_t val;
+
+  val = mc2_alloc_custom(sizeof(FILE*), &mc2_io_operations);
+  ((FILE **) mc2_custom_data_val(val))[0] = fdopen(mc2_int_val(fd), "w");
+  return val;
+}
+
+mc2_value_t mc2_flush(mc2_value_t channel) {
+  fflush(((FILE **) mc2_custom_data_val(channel))[0]);
+  return mc2_val_unit;
+}
+
+mc2_value_t mc2_output_string(mc2_value_t channel, mc2_value_t string) {
+  fprintf(((FILE **) mc2_custom_data_val(channel))[0], "%s", mc2_string_val(string));
+  return mc2_val_unit;
 }
 
 

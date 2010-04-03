@@ -246,7 +246,11 @@ and close_letrec toplevel aenv cenv idlambdal lambda =
                                           fun_arity = List.length idl;
                                           fun_closed = true } in
                           let off = !offset + 1 in
-                            offset := off + 3; (* [trampoline, arity, function pointer] *)
+                            if fundesc.fun_arity = 1 then begin
+                              offset := off + 2 (* [function pointer, arity] *)
+                            end else begin
+                              offset := off + 3; (* [trampoline, arity, function pointer] *)
+                            end;
                             id, idl, lambda, fundesc, off
                       | _ ->
                           assert false)
@@ -312,7 +316,7 @@ and close_letrec toplevel aenv cenv idlambdal lambda =
           cblock := !cblock @ (build_closure toplevel fundesc))
        closl);
     let lambda, approx = close toplevel !aenv_body !cenv_body lambda in
-      begin match !cblock @ (List.map (fun id -> Lident(id)) fvl) with
+      begin match !cblock @ (List.map (fun id -> fst (close toplevel aenv cenv (Lident(id)))) fvl) with
         | _ when not (IdentSet.mem id0 (Lambda.fv lambda)) ->
             lambda, approx
         | Lconst(Sconst_pointer(header)) :: lambdal ->

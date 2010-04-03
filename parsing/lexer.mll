@@ -182,7 +182,7 @@ rule token = parse
       { EQUAL }
   | "<>" | "<" | ">" | "<=" | ">=" | "==" | "!="
       { INFIXOP0(Lexing.lexeme lexbuf) }
-  | "^"
+  | '^' | '@'
       { INFIXOP1(Lexing.lexeme lexbuf) }
   | "+" | "+."
       { INFIXOP2(Lexing.lexeme lexbuf) }

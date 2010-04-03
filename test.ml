@@ -64,10 +64,4 @@ let h y l =
 ;;
 *)
 
-let rec foldl f a l =
-  match l with
-    | [] -> a
-    | x :: l -> foldl f (f a x) l
-;;
-
-foldl (+) 1 [1;2;3];;
+print_endline "Hallo Welt!";;

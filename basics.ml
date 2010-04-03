@@ -42,3 +42,37 @@ external ignore: 'a -> unit = "%ignore";;
 
 external fst: 'a * 'b -> 'a = "%field0";;
 external snd: 'a * 'b -> 'b = "%field1";;
+
+
+(***********************)
+(*** List operations ***)
+(***********************)
+
+let rec (@) l1 l2 =
+  match l1 with
+    | [] -> l2
+    | x :: l1 -> x :: (l1 @ l2)
+;;
+
+
+(**********************)
+(*** I/O operations ***)
+(**********************)
+
+type in_channel
+type out_channel
+
+external open_descriptor_out: int -> out_channel = "mc2_open_descriptor_out";;
+external open_descriptor_in: int -> in_channel = "mc2_open_descriptor_in";;
+
+let stdin = open_descriptor_in 0
+and stdout = open_descriptor_out 1
+and stderr = open_descriptor_out 2;;
+
+external flush: out_channel -> unit = "mc2_flush";;
+
+external output_string: out_channel -> string -> unit = "mc2_output_string";;
+
+let print_string s = output_string stdout s;;
+let print_endline s = print_string s; print_string "\n"; flush stdout;;
+

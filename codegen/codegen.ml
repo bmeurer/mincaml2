@@ -1,5 +1,6 @@
 open Astcommon
 open Lambda
+open Primitive
 
 module IdentMap = Map.Make(Ident)
 
@@ -290,7 +291,7 @@ and generate_prim cg env cont p lambdal =
         assert false (* TODO *)
     | Pmakeblock(header, Immutable), vl ->
         let vl = List.map (fun v -> build_box v cg) vl in
-          if List.for_all (fun v -> Llvm.is_constant v || Llvm.is_global_constant v) vl then begin
+          if List.for_all (fun v -> Llvm.is_constant v) vl then begin
             let vhdr = const_pointer header cg in
             let v = Llvm.const_array cg.cg_value_type (Array.of_list (vhdr :: vl)) in
             let v = Llvm.define_global "" v cg.cg_module in
@@ -303,7 +304,7 @@ and generate_prim cg env cont p lambdal =
             let vptr = Llvm.build_pointercast v (Llvm.pointer_type cg.cg_value_type) "" cg.cg_builder in
               (Array.iteri
                  (fun i v ->
-                    let vptr = Llvm.build_gep vptr [|const_i32 i cg|] "" cg.cg_builder in
+                    let vptr = Llvm.build_gep vptr [|const_i32 (i + 1) cg|] "" cg.cg_builder in
                       ignore (Llvm.build_store v vptr cg.cg_builder))
                  (Array.of_list vl));
               v
@@ -316,8 +317,18 @@ and generate_prim cg env cont p lambdal =
           Llvm.build_load v "" cg.cg_builder
     | Poffset(n), [v] ->
         Llvm.build_gep (build_box v cg) [|const_int n cg|] "" cg.cg_builder
-    | Pextcall(_), _ ->
-        assert false (* TODO *)
+    | Pextcall(prim), vl ->
+        let vl, ty = (if prim.prim_native_float then begin
+                        List.map (fun v -> build_unbox v cg.cg_float_type cg) vl,
+                        cg.cg_float_type
+                      end else begin
+                        List.map (fun v -> build_box v cg) vl,
+                        cg.cg_value_type
+                      end) in
+        let fname = (if prim.prim_native_name <> "" then prim.prim_native_name else prim.prim_name) in
+        let ftype = Llvm.function_type ty (Array.make prim.prim_arity ty) in
+        let faddr = Llvm.declare_function fname ftype cg.cg_module in
+          Llvm.build_call faddr (Array.of_list vl) "" cg.cg_builder
     | Pnegint, [v1] ->
         Llvm.build_neg (build_unbox v1 cg.cg_int_type cg) "" cg.cg_builder
     | (Paddint | Psubint | Pmulint  | Pdivint | Pmodint
