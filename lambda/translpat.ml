@@ -133,7 +133,7 @@ let rec compile matching =
         let clausel' = expand_tuple clausel in
         let lambda, total = compile (Matching(clausel', (List.rev_map fst id0il) @ idl1)) in
           (List.fold_left
-             (fun lambda (id, i) -> Llet(id, Lprim(Pgetfield(i), [lid0]), lambda))
+             (fun lambda (id, i) -> Llet(id, Lprim(Pfield(i), [lid0]), lambda))
              lambda
              id0il), total
 
@@ -171,10 +171,10 @@ let rec compile matching =
         let lambda1, total1 = compile (Matching(clausel1, (List.rev_map fst id0il) @ idl1)) in
         let lambda2, total2 = compile (Matching(clausel2, idl)) in
         let lambda1 = (List.fold_left
-                         (fun lambda (id, i) -> Llet(id, Lprim(Pgetfield(i + 1), [lid0]), lambda))
+                         (fun lambda (id, i) -> Llet(id, Lprim(Pfield(i + 1), [lid0]), lambda))
                          lambda1
                          id0il) in
-        let lambda0 = Lprim(Paddrcmp(Lambda.Ceq), [Lident(id); Lprim(Pgetfield(0), [lid0])]) in
+        let lambda0 = Lprim(Paddrcmp(Lambda.Ceq), [Lident(id); Lprim(Pfield(0), [lid0])]) in
           if total1 then
             Lifthenelse(lambda0, lambda1, lambda2), total2
           else
@@ -190,7 +190,7 @@ let rec compile matching =
               let id0il = ListUtils.rev_init arity (fun i -> Ident.create_tmp i, i) in
               let lambda1, total1 = compile (Matching(!clauselref, (List.rev_map fst id0il) @ idl1)) in
               let lambda1 = (List.fold_left
-                               (fun lambda (id, i) -> Llet(id, Lprim(Pgetfield(i), [lid0]), lambda))
+                               (fun lambda (id, i) -> Llet(id, Lprim(Pfield(i), [lid0]), lambda))
                                lambda1
                                id0il) in
               let constrl2, total2 = compile_casel casel in

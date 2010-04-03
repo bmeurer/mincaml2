@@ -18,7 +18,7 @@ and primitive =
   | Pcompare
   (* Operations on heap blocks *)
   | Pmakeblock of nativeint * mutable_flag
-  | Pgetfield of int
+  | Pfield of int
   (* External call *)
   | Pextcall of Primitive.description
   (* Address operations *)
@@ -41,6 +41,7 @@ and primitive =
 and structured_constant =
   | Sconst_base of constant
   | Sconst_pointer of nativeint
+  | Sconst_immstring of string
   | Sconst_block of nativeint * structured_constant list
 
 and lambda =
@@ -67,8 +68,10 @@ and lambda_switch =
 
 module IdentSet: Set.S with type elt = Ident.t
 
-val tag_custom: int
 val tag_closure: int
+val tag_float: int
+val tag_string: int
+val tag_custom: int
 
 val lambda_unit: lambda
 

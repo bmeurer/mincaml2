@@ -23,12 +23,12 @@ let build_apply_function arity =
   let clos = Ident.create "clos" in
   let rec apply clos n =
     if n = arity - 1 then begin
-      Lapply(Lprim(Pgetfield(0), [Lident(clos)]),
+      Lapply(Lprim(Pfield(0), [Lident(clos)]),
              [Lident(List.nth argl n); Lident(clos)])
     end else begin
       let nclos = Ident.create "clos" in
         Llet(nclos,
-             Lapply(Lprim(Pgetfield(0), [Lident(clos)]),
+             Lapply(Lprim(Pfield(0), [Lident(clos)]),
                     [Lident(List.nth argl n); Lident(clos)]),
              apply nclos (n + 1))
     end in
@@ -38,9 +38,9 @@ let build_apply_function arity =
                 apply clos 0 
               end else begin
                 Lifthenelse(Lprim(Paddrcmp(Ceq),
-                                  [Lprim(Pgetfield(1), [Lident(clos)]);
+                                  [Lprim(Pfield(1), [Lident(clos)]);
                                    Lconst(Sconst_base(Const_int(arity)))]),
-                            Lapply(Lprim(Pgetfield(2), [Lident(clos)]),
+                            Lapply(Lprim(Pfield(2), [Lident(clos)]),
                                    List.map (fun id -> Lident(id)) idl),
                             apply clos 0)
               end)
@@ -58,13 +58,13 @@ let rec build_curry_functions toplevel arity num =
     if num = arity - 1 then begin
       let rec curry args clos n =
         if n = 0 then begin
-          Lapply(Lprim(Pgetfield(2), [Lident(clos)]),
+          Lapply(Lprim(Pfield(2), [Lident(clos)]),
                  args @ [Lident(arg); Lident(clos)])
         end else begin
           let nclos = Ident.create "clos" in
             Llet(nclos,
-                 Lprim(Pgetfield(3), [Lident(clos)]),
-                 curry (Lprim(Pgetfield(2), [Lident(clos)]) :: args) nclos (n - 1))
+                 Lprim(Pfield(3), [Lident(clos)]),
+                 curry (Lprim(Pfield(2), [Lident(clos)]) :: args) nclos (n - 1))
         end
       in
         toplevel := (Ident.create_predefined ("mincaml2_curry" ^ (string_of_int arity) ^ "_" ^ (string_of_int num)),
@@ -153,7 +153,7 @@ let build_direct_apply fundesc lambda lambdal =
 let rec build_generic_apply toplevel lambda lambdal =
   match lambda, lambdal with
     | Lident(_) as lid, [lambda] ->
-        Lapply(Lprim(Pgetfield(0), [lid]),
+        Lapply(Lprim(Pfield(0), [lid]),
                [lambda; lid])
     | lambda, ([_] as lambdal) ->
         let id = Ident.create "clos" in
@@ -271,7 +271,7 @@ and close_letrec toplevel aenv cenv idlambdal lambda =
            (fun cenv id ->
               let off = !offset in
                 offset := off + 1;
-                IdentMap.add id (Lprim(Pgetfield(off), [lid0])) cenv)
+                IdentMap.add id (Lprim(Pfield(off), [lid0])) cenv)
            cenv
            fvl) in
     let cenv = (List.fold_left

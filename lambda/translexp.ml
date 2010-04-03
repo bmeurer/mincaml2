@@ -63,28 +63,33 @@ let primitive_comparisons = HashtblUtils.create 7
 
 let primitives = HashtblUtils.create 33
   [
-    "%identity",  Pidentity;
-    "%ignore",    Pignore;
-    "%raise",     Praise;
-    "%compare",   Pcompare;
-    "%getfield0", Pgetfield(0);
-    "%getfield1", Pgetfield(1);
-    "%eq",        Paddrcmp(Ceq);
-    "%noteq",     Paddrcmp(Cne);
-    "%negint",    Pnegint;
-    "%addint",    Paddint;
-    "%subint",    Psubint;
-    "%mulint",    Pmulint;
-    "%divint",    Pdivint;
-    "%modint",    Pmodint;
-    "%andint",    Pandint;
-    "%orint",     Porint;
-    "%xorint",    Pxorint;
-    "%lslint",    Plslint;
-    "%lsrint",    Plsrint;
-    "%asrint",    Pasrint;
-    "%negfloat",  Pnegfloat;
-    "%addfloat",  Paddfloat;
+    "%identity",   Pidentity;
+    "%ignore",     Pignore;
+    "%raise",      Praise;
+    "%compare",    Pcompare;
+    "%field0",     Pfield(0);
+    "%field1",     Pfield(1);
+    "%eq",         Paddrcmp(Ceq);
+    "%noteq",      Paddrcmp(Cne);
+    "%negint",     Pnegint;
+    "%addint",     Paddint;
+    "%subint",     Psubint;
+    "%mulint",     Pmulint;
+    "%divint",     Pdivint;
+    "%modint",     Pmodint;
+    "%andint",     Pandint;
+    "%orint",      Porint;
+    "%xorint",     Pxorint;
+    "%lslint",     Plslint;
+    "%lsrint",     Plsrint;
+    "%asrint",     Pasrint;
+    "%intoffloat", Pintoffloat;
+    "%floatofint", Pfloatofint;
+    "%negfloat",   Pnegfloat;
+    "%addfloat",   Paddfloat;
+    "%subfloat",   Psubfloat;
+    "%mulfloat",   Pmulfloat;
+    "%divfloat",   Pdivfloat;
     (* TODO *)
   ]
 
@@ -243,8 +248,7 @@ and translate_structure = function
   | Tstr_exn(id, taul) :: str ->
       (* TODO - This let may not be substituted *)
       Llet(id,
-           Lprim(Pmakeblock(Lambda.make_header 0 1, Immutable),
-                 [Lconst(Sconst_base(Const_string(Ident.name id)))]),
+           Lconst(Sconst_immstring(Ident.name id)),
            translate_structure str)
   | Tstr_external(_) :: str ->
       translate_structure str

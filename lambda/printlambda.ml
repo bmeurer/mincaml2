@@ -26,6 +26,8 @@ let rec print_structured_constant ppf = function
       fprintf ppf "%nin" n
   | Sconst_pointer(n) ->
       fprintf ppf "%nia" n
+  | Sconst_immstring(s) ->
+      fprintf ppf "%Si" s
   | Sconst_block(header, []) ->
       let tag, wosize = Lambda.split_header header in
         fprintf ppf "[(%i, %i)]" tag wosize
@@ -57,8 +59,8 @@ let print_primitive ppf = function
   | Pmakeblock(header, Immutable) ->
       let tag, wosize = Lambda.split_header header in
         fprintf ppf "makeimmblock (%i, %i)" tag wosize
-  | Pgetfield(n) ->
-      fprintf ppf "getfield %i" n
+  | Pfield(n) ->
+      fprintf ppf "field %i" n
   | Pextcall(prim) ->
       fprintf ppf "%s" prim.prim_name
   | Paddaddr ->

@@ -35,13 +35,22 @@ let const_pointer n cg =
 let const_float f cg =
   Llvm.const_float_of_string cg.cg_float_type f
 
-let make_custom_header ty cg =
+let const_header tag ty cg =
+  assert (tag >= 0 && tag < 256);
   let sizeof_ty = Llvm.size_of ty in
   let sizeof_value = Llvm.size_of cg.cg_value_type in
   let sizeof_ty = Llvm.const_add sizeof_ty (Llvm.const_sub sizeof_value (const_int 1 cg)) in
   let wosize = Llvm.const_udiv sizeof_ty sizeof_value in
-  let tag = const_int Lambda.tag_custom cg in
+  let tag = const_int tag cg in
     Llvm.const_inttoptr (Llvm.const_or tag (Llvm.const_shl wosize (const_int 8 cg))) cg.cg_value_type
+
+let const_string s cg =
+  let slen = String.length s in
+  let vty = Llvm.array_type (Llvm.i8_type cg.cg_context) (slen + 1) in
+  let vty = Llvm.struct_type cg.cg_context [|cg.cg_value_type; vty|] in
+  let vhdr = const_header Lambda.tag_string vty cg in
+  let v = Llvm.const_struct cg.cg_context [|vhdr; Llvm.const_stringz cg.cg_context s|] in
+    Llvm.define_global "" v cg.cg_module
 
 let build_box v cg =
   match Llvm.type_of v with
@@ -56,19 +65,19 @@ let build_box v cg =
         let v = Llvm.build_or v (const_int 1 cg) "" cg.cg_builder in
           Llvm.build_inttoptr v cg.cg_value_type "" cg.cg_builder
     | ty when ty = cg.cg_float_type && Llvm.is_constant v ->
-        let vhdr = make_custom_header cg.cg_floatblk_type cg in
-        let vl = [vhdr; (* TODO *) Llvm.undef cg.cg_value_type; v] in
-        let v = Llvm.const_struct cg.cg_context (Array.of_list vl) in
+        let vhdr = const_header Lambda.tag_float cg.cg_floatblk_type cg in
+        let v = Llvm.const_struct cg.cg_context (Array.of_list [vhdr; v]) in
         let v = Llvm.define_global "" v cg.cg_module in
           Llvm.set_global_constant true v;
           Llvm.set_linkage Llvm.Linkage.Internal v;
           let v = Llvm.const_pointercast v cg.cg_value_type in
             Llvm.const_gep v [|const_i32 1 cg|]
     | ty when ty = cg.cg_float_type ->
-        let vhdr = make_custom_header cg.cg_floatblk_type cg in
+        let vhdr = const_header Lambda.tag_float cg.cg_floatblk_type cg in
         let vptr = Llvm.build_call cg.cg_alloc_func [|vhdr|] "" cg.cg_builder in
-        let fbptr = Llvm.build_pointercast vptr (Llvm.pointer_type cg.cg_floatblk_type) "" cg.cg_builder in
-        let fptr = Llvm.build_gep fbptr [|const_i32 0 cg; const_i32 2 cg|] "" cg.cg_builder in
+        let vptr0 = Llvm.build_gep vptr [|const_i32 (-1) cg|] "" cg.cg_builder in
+        let fbptr = Llvm.build_pointercast vptr0 (Llvm.pointer_type cg.cg_floatblk_type) "" cg.cg_builder in
+        let fptr = Llvm.build_gep fbptr [|const_i32 0 cg; const_i32 1 cg|] "" cg.cg_builder in
           ignore (Llvm.build_store v fptr cg.cg_builder);
           vptr
     | ty when Llvm.classify_type ty = Llvm.TypeKind.Pointer ->
@@ -88,7 +97,7 @@ let build_unbox v ty cg =
     | vty, ty when vty = cg.cg_value_type && ty = cg.cg_float_type ->
         let v = Llvm.build_gep v [|const_i32 (-1) cg|] "" cg.cg_builder in
         let v = Llvm.build_pointercast v (Llvm.pointer_type cg.cg_floatblk_type) "" cg.cg_builder in
-        let v = Llvm.build_gep v [|const_i32 0 cg; const_i32 2 cg|] "" cg.cg_builder in
+        let v = Llvm.build_gep v [|const_i32 0 cg; const_i32 1 cg|] "" cg.cg_builder in
           Llvm.build_load v "" cg.cg_builder
     | vty, ty when vty = cg.cg_value_type && Llvm.classify_type ty = Llvm.TypeKind.Pointer ->
         Llvm.build_pointercast v ty "" cg.cg_builder
@@ -305,7 +314,7 @@ and generate_prim cg env cont p lambdal =
           Llvm.build_gep v [|const_i32 1 cg|] "" cg.cg_builder
     | Pmakeblock(_), _ ->
         assert false (* TODO *)
-    | Pgetfield(n), [v] ->
+    | Pfield(n), [v] ->
         let v = Llvm.build_pointercast v (Llvm.pointer_type cg.cg_value_type) "" cg.cg_builder in
         let v = Llvm.build_gep v [|const_i32 n cg|] "" cg.cg_builder in
           Llvm.build_load v "" cg.cg_builder
@@ -329,13 +338,16 @@ and generate_prim cg env cont p lambdal =
           Llvm.build_icmp icmp v1 v2 "" cg.cg_builder
     | Pnegint, [v1] ->
         Llvm.build_neg (build_unbox v1 cg.cg_int_type cg) "" cg.cg_builder
-    | (Paddint | Psubint | Pmulint  | Pandint | Porint | Pxorint | Plslint | Plsrint | Pasrint as p), [v1; v2] ->
+    | (Paddint | Psubint | Pmulint  | Pdivint | Pmodint
+      | Pandint | Porint | Pxorint | Plslint | Plsrint | Pasrint as p), [v1; v2] ->
         let v1 = build_unbox v1 cg.cg_int_type cg in
         let v2 = build_unbox v2 cg.cg_int_type cg in
           (match p with
              | Paddint -> Llvm.build_add
              | Psubint -> Llvm.build_sub
              | Pmulint -> Llvm.build_mul
+             | Pdivint -> Llvm.build_sdiv
+             | Pmodint -> Llvm.build_srem
              | Pandint -> Llvm.build_and
              | Porint  -> Llvm.build_or
              | Pxorint -> Llvm.build_xor
@@ -343,8 +355,6 @@ and generate_prim cg env cont p lambdal =
              | Plsrint -> Llvm.build_lshr 
              | Pasrint -> Llvm.build_ashr
              | _ -> assert false) v1 v2 "" cg.cg_builder
-    | (Pdivint | Pmodint), [v1; v2] ->
-        assert false (* TODO *)
     | Pintcmp(cmp), [v1; v2] ->
         let v1 = build_unbox v1 cg.cg_int_type cg in
         let v2 = build_unbox v2 cg.cg_int_type cg in
@@ -353,16 +363,23 @@ and generate_prim cg env cont p lambdal =
                       | Clt -> Llvm.Icmp.Slt | Cgt -> Llvm.Icmp.Sgt
                       | Cle -> Llvm.Icmp.Sle | Cge -> Llvm.Icmp.Sge) in
           Llvm.build_icmp icmp v1 v2 "" cg.cg_builder
-    | Pintoffloat, _ ->
-        assert false (* TODO *)
-    | Pfloatofint, _ ->
-        assert false (* TODO *)
+    | Pintoffloat, [v] ->
+        let v = build_unbox v cg.cg_int_type cg in
+          Llvm.build_sitofp v cg.cg_float_type "" cg.cg_builder
+    | Pfloatofint, [v] ->
+        let v = build_unbox v cg.cg_float_type cg in
+          Llvm.build_fptosi v cg.cg_int_type "" cg.cg_builder
     | Pnegfloat, [v] ->
         Llvm.build_fneg (build_unbox v cg.cg_float_type cg) "" cg.cg_builder
-    | Paddfloat, [v1; v2] ->
+    | (Paddfloat | Psubfloat | Pmulfloat | Pdivfloat as p), [v1; v2] ->
         let v1 = build_unbox v1 cg.cg_float_type cg in
         let v2 = build_unbox v2 cg.cg_float_type cg in
-          Llvm.build_fadd v1 v2 "" cg.cg_builder
+          (match p with
+             | Paddfloat -> Llvm.build_fadd
+             | Psubfloat -> Llvm.build_fsub
+             | Pmulfloat -> Llvm.build_fmul
+             | Pdivfloat -> Llvm.build_fdiv
+             | _ -> assert false) v1 v2 "" cg.cg_builder
     | _ ->
         assert false (* TODO *)
 
@@ -371,6 +388,11 @@ and generate_sconst cg = function
       generate_const cg c
   | Sconst_pointer(a) ->
       const_pointer a cg
+  | Sconst_immstring(s) ->
+      let v = const_string s cg in
+        Llvm.set_global_constant true v;
+        Llvm.set_linkage Llvm.Linkage.Internal v;
+        Llvm.const_gep v [|const_i32 1 cg|]
   | Sconst_block(header, scl) ->
       let vl = List.map (fun sc -> Llvm.const_pointercast (generate_sconst cg sc) cg.cg_value_type) scl in
       let vhdr = const_pointer header cg in
@@ -378,7 +400,7 @@ and generate_sconst cg = function
       let v = Llvm.define_global "" v cg.cg_module in
         Llvm.set_global_constant true v;
         Llvm.set_linkage Llvm.Linkage.Internal v;
-        Llvm.const_gep v [|const_i32 1 cg|]
+        Llvm.const_gep (Llvm.const_pointercast v cg.cg_value_type) [|const_i32 1 cg|]
 
 and generate_const cg = function
   | Const_int(n) ->
@@ -391,8 +413,10 @@ and generate_const cg = function
       assert false (* TODO *)
   | Const_int64(_) ->
       assert false (* TODO *)
-  | Const_string(_) ->
-      assert false (* TODO *)
+  | Const_string(s) ->
+      let v = const_string s cg in
+        Llvm.set_linkage Llvm.Linkage.Internal v;
+        Llvm.const_gep (Llvm.const_pointercast v cg.cg_value_type) [|const_i32 1 cg|]
   | Const_nativeint(_) ->
       assert false (* TODO *)
 
@@ -407,7 +431,7 @@ let create () =
   let cg_int_type = Llvm.integer_type cg_context Sys.word_size in
   let cg_float_type = Llvm.double_type cg_context in
   let cg_value_type = Llvm.pointer_type cg_int_type in
-  let cg_floatblk_type = Llvm.struct_type cg_context [|cg_value_type; cg_value_type; cg_float_type|] in
+  let cg_floatblk_type = Llvm.struct_type cg_context [|cg_value_type; cg_float_type|] in
   let cg_alloc_func = Llvm.declare_function "mincaml2_alloc" (Llvm.function_type cg_value_type [|cg_value_type|]) cg_module in
     ignore (Llvm.define_type_name "value" cg_value_type cg_module);
     ignore (Llvm.define_type_name "floatblk" cg_floatblk_type cg_module);
