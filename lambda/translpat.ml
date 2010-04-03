@@ -174,7 +174,7 @@ let rec compile matching =
                          (fun lambda (id, i) -> Llet(id, Lprim(Pgetfield(i + 1), [lid0]), lambda))
                          lambda1
                          id0il) in
-        let lambda0 = Lprim(Pintcmp(Lambda.Ceq), [Lident(id); Lprim(Pgetfield(0), [lid0])]) in
+        let lambda0 = Lprim(Paddrcmp(Lambda.Ceq), [Lident(id); Lprim(Pgetfield(0), [lid0])]) in
           if total1 then
             Lifthenelse(lambda0, lambda1, lambda2), total2
           else
