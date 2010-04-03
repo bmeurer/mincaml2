@@ -18,13 +18,13 @@ and ident_list = Ident.create "list"
 and ident_option = Ident.create "option"
 
 (* Qualified identifiers for predefined exceptions *)
-let ident_match_failure = Ident.create "Match_failure"
-and ident_out_of_memory = Ident.create "Out_of_memory"
-and ident_stack_overflow = Ident.create "Stack_overflow"
-and ident_invalid_argument = Ident.create "Invalid_argument"
-and ident_failure = Ident.create "Failure"
-and ident_not_found = Ident.create "Not_found"
-and ident_division_by_zero = Ident.create "Division_by_zero"
+let ident_match_failure = Ident.create_predefined "Match_failure"
+and ident_out_of_memory = Ident.create_predefined "Out_of_memory"
+and ident_stack_overflow = Ident.create_predefined "Stack_overflow"
+and ident_invalid_argument = Ident.create_predefined "Invalid_argument"
+and ident_failure = Ident.create_predefined "Failure"
+and ident_not_found = Ident.create_predefined "Not_found"
+and ident_division_by_zero = Ident.create_predefined "Division_by_zero"
 
 (* Predefined types *)
 let type_int = new_generic_typ (Tconstruct(ident_int, []))

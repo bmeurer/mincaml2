@@ -46,7 +46,7 @@ let build_apply_function arity =
               end)
 
 let build_apply toplevel arity =
-  let apply = Ident.create_predefined ("mincaml2_apply" ^ (string_of_int arity)) in
+  let apply = Ident.create_predefined ("apply" ^ (string_of_int arity)) in
     if not (List.exists (fun (id, _) -> Ident.equal id apply) !toplevel) then begin
       toplevel := (apply, build_apply_function arity) :: !toplevel;
     end;
@@ -67,10 +67,10 @@ let rec build_curry_functions toplevel arity num =
                  curry (Lprim(Pfield(2), [Lident(clos)]) :: args) nclos (n - 1))
         end
       in
-        toplevel := (Ident.create_predefined ("mincaml2_curry" ^ (string_of_int arity) ^ "_" ^ (string_of_int num)),
+        toplevel := (Ident.create_predefined ("curry" ^ (string_of_int arity) ^ "_" ^ (string_of_int num)),
                      Lfunction([arg; clos], (curry [] clos (arity - 1)))) :: !toplevel
     end else begin
-      let name1 = "mincaml2_curry" ^ (string_of_int arity) in
+      let name1 = "curry" ^ (string_of_int arity) in
       let name2 = if num = 0 then name1 else name1 ^ "_" ^ (string_of_int num) in
         toplevel := (Ident.create_predefined name2,
                      Lfunction([arg; clos],
@@ -83,7 +83,7 @@ let rec build_curry_functions toplevel arity num =
     end
 
 let build_curry toplevel arity =
-  let curry = Ident.create_predefined ("mincaml2_curry" ^ (string_of_int arity)) in
+  let curry = Ident.create_predefined ("curry" ^ (string_of_int arity)) in
     if not (List.exists (fun (id, _) -> Ident.equal id curry) !toplevel) then begin
       build_curry_functions toplevel arity 0
     end;

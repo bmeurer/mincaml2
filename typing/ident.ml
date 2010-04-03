@@ -24,7 +24,7 @@ let unique_name id =
   if id.stamp >= 0 then
     id.name ^ "__" ^ (string_of_int id.stamp)
   else
-    id.name
+    "mincal2_" ^ id.name
 
 let compare id1 id2 =
   let c = id1.stamp - id2.stamp in
