@@ -1,33 +1,3 @@
-external raise: exn -> 'a = "%raise";;
-
-external ( = ): 'a -> 'a -> bool = "%equal";;
-external ( <> ): 'a -> 'a -> bool = "%notequal";;
-external ( < ): 'a -> 'a -> bool = "%lessthan";;
-external ( > ): 'a -> 'a -> bool = "%greaterthan";;
-external ( <= ): 'a -> 'a -> bool = "%lessequal";;
-external ( >= ): 'a -> 'a -> bool = "%greaterequal";;
-external compare: 'a -> 'a -> int = "%compare";;
-
-external ( == ): 'a -> 'a -> bool = "%eq";;
-external ( != ): 'a -> 'a -> bool = "%noteq";;
-
-external not: bool -> bool = "%boolnot";;
-external ( && ): bool -> bool -> bool = "%sequand";;
-external ( || ): bool -> bool -> bool = "%sequor";;
-external ( ~- ): int -> int = "%negint";;
-
-external ( + ): int -> int -> int = "%addint";;
-external ( - ): int -> int -> int = "%subint";;
-external ( * ): int -> int -> int = "%mulint";;
-external ( / ): int -> int -> int = "%divint";;
-external ( mod ): int -> int -> int = "%modint";;
-
-external ( ~-. ): float -> float = "%negfloat";;
-external ( +. ): float -> float -> float = "%addfloat";;
-
-external fst: 'a * 'b -> 'a = "%getfield0";;
-external snd: 'a * 'b -> 'b = "%getfield1";;
-
 (*
 let fact x =
   let rec fact_aux x accu =
@@ -40,8 +10,6 @@ let fact x =
 fact 3;;
 *)
 
-let f x = (if x = 0 then 1.0 else 2.0) +. 1.0;;
-
 (*
 let rec even x =
   if x == 0 then true
@@ -50,6 +18,8 @@ and odd x =
   if x == 0 then false
   else even (x - 1)
 ;;
+
+even, odd;;
 *)
 
 (*
@@ -94,7 +64,7 @@ let h y l =
 ;;
 *)
 
-(*
+
 let rec foldl f a l =
   match l with
     | [] -> a
@@ -102,4 +72,5 @@ let rec foldl f a l =
 ;;
 
 foldl (+) 1 [1;2;3];;
-*)
+
+

@@ -1,6 +1,6 @@
 let pstr =
   begin try
-    Parse.file "test.ml" Parse.structure
+    Parse.file "basics.ml" Parse.structure @ Parse.file "test.ml" Parse.structure
   with
     | Syntaxerr.Error(error) ->
         Syntaxerr.report_error Format.err_formatter error;
