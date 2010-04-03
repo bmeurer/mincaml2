@@ -61,6 +61,7 @@ let build_box v cg =
         let v = Llvm.const_struct cg.cg_context (Array.of_list vl) in
         let v = Llvm.define_global "" v cg.cg_module in
           Llvm.set_global_constant true v;
+          Llvm.set_linkage Llvm.Linkage.Internal v;
           let v = Llvm.const_pointercast v cg.cg_value_type in
             Llvm.const_gep v [|const_i32 1 cg|]
     | ty when ty = cg.cg_float_type ->
@@ -289,6 +290,7 @@ and generate_prim cg env cont p lambdal =
         let v = Llvm.const_array cg.cg_value_type (Array.of_list (vhdr :: vl)) in
         let v = Llvm.define_global "" v cg.cg_module in
           Llvm.set_global_constant true v;
+          Llvm.set_linkage Llvm.Linkage.Internal v;
           Llvm.const_gep v [|const_i32 1 cg|]
     | Pmakeblock(header, Immutable), vl ->
         let vhdr = const_pointer header cg in
@@ -375,6 +377,7 @@ and generate_sconst cg = function
       let v = Llvm.const_array cg.cg_value_type (Array.of_list (vhdr :: vl)) in
       let v = Llvm.define_global "" v cg.cg_module in
         Llvm.set_global_constant true v;
+        Llvm.set_linkage Llvm.Linkage.Internal v;
         Llvm.const_gep v [|const_i32 1 cg|]
 
 and generate_const cg = function
@@ -439,5 +442,10 @@ let dump lambda =
       ignore (Llvm.build_ret (Llvm.build_intcast v cg.cg_int_type "" cg.cg_builder) cg.cg_builder);
       Llvm_analysis.assert_valid_function main;
       ignore (Llvm.PassManager.run_function main cg.cg_manager);
+      Llvm_analysis.assert_valid_module cg.cg_module;
+      begin
+        let mpm = Llvm.PassManager.create () in
+          ignore (Llvm.PassManager.run_module cg.cg_module mpm)
+      end;
       Llvm.dump_module cg.cg_module;
       ignore (Llvm_bitwriter.write_bitcode_file cg.cg_module "test.bc")
