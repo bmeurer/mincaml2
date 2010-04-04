@@ -147,7 +147,7 @@ let rec translate_exp exp =
     | Texp_constant(c) ->
         Lconst(Sconst_base(c))
     | Texp_ident(id, { val_kind = Val_regular }) ->
-        Lident(id)
+        translate_ident id
     | Texp_ident(_, { val_kind = Val_primitive(prim) }) ->
         let idl = ListUtils.init prim.prim_arity Ident.create_tmp in
           Lfunction(idl, translate_primitive exp.exp_gamma prim exp.exp_tau (List.map (fun id -> Lident(id)) idl))
@@ -221,7 +221,6 @@ and translate_let rec_flag casel lambda =
           | (pat, exp) :: casel ->
               translate_match_check_failure pat.pat_loc (translate_exp exp) [[pat], translate_let_aux casel]
         in translate_let_aux casel
-
     | Recursive ->
         let idexpl = (List.map
                         (fun (pat, exp) ->
@@ -242,13 +241,30 @@ and translate_structure = function
   | Tstr_exp(exp) :: str ->
       Lsequence(translate_exp exp, translate_structure str)
   | Tstr_let(rec_flag, casel) :: str ->
-      translate_let rec_flag casel (translate_structure str)
+      (* determine the free pattern variables of the case list *)
+      let idl = IdentSet.elements (List.fold_left
+                                     (fun ids (pat, _) ->
+                                        IdentSet.union ids (pattern_fv pat))
+                                     IdentSet.empty
+                                     casel) in
+      (* generate a sequence of Psetglobal's for the free pattern variables *)
+      let rec setglobals = function
+        | [] -> lambda_unit
+        | [id] -> Lprim(Psetglobal(id), [Lident(id)])
+        | id :: idl -> Lsequence(setglobals [id], setglobals idl) in
+      (* translate the let/let rec statement *)
+      let lambda = translate_let rec_flag casel (setglobals idl) in
+      (* mark the global variables persistent *)
+      List.iter Ident.make_persistent idl;
+      (* translate the remainder of the structure *)
+      Lsequence(lambda, translate_structure str)
   | Tstr_typ(_) :: str ->
       translate_structure str
   | Tstr_exn(id, taul) :: str ->
-      (* TODO - This let may not be substituted *)
-      Llet(id,
-           Lconst(Sconst_immstring(Ident.name id)),
-           translate_structure str)
+      (* make the exception name persistent *)
+      Ident.make_persistent id;
+      (* translate the remainder of the structure *)
+      Lsequence(Lprim(Psetglobal(id), [Lconst(Sconst_immstring(Ident.name id))]),
+                translate_structure str)
   | Tstr_external(_) :: str ->
       translate_structure str

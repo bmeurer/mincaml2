@@ -53,6 +53,10 @@ let print_primitive ppf = function
       fprintf ppf "raise"
   | Pcompare ->
       fprintf ppf "compare"
+  | Pgetglobal(id) ->
+      fprintf ppf "getglobal \"%a\"" Ident.print id
+  | Psetglobal(id) ->
+      fprintf ppf "setglobal \"%a\"" Ident.print id
   | Pmakeblock(header, Mutable) ->
       let tag, wosize = Lambda.split_header header in
         fprintf ppf "makemutblock (%i, %i)" tag wosize
@@ -196,6 +200,11 @@ let rec print_lambda ppf = function
         print_lambda lambda1
         print_lambda lambda2
   | Lsequence(lambda1, lambda2) ->
-      fprintf ppf "@[<2>(seq@ %a@ %a)@]"
-        print_lambda lambda1
-        print_lambda lambda2
+      let rec print_sequence ppf = function
+        | Lsequence(l1, l2) ->
+            fprintf ppf "%a@ %a" print_sequence l1 print_sequence l2
+        | lambda ->
+            print_lambda ppf lambda
+      in fprintf ppf "@[<2>(seq@ %a@ %a)@]"
+           print_sequence lambda1
+           print_sequence lambda2

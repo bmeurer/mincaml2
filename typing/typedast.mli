@@ -47,5 +47,6 @@ and structure =
     structure_item list
 
 
+val pattern_fv: pattern -> IdentSet.t
 val pattern_map_idents: (Ident.t -> Ident.t) -> pattern -> pattern
 

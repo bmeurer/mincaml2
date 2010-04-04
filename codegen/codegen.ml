@@ -289,6 +289,20 @@ and generate_prim cg env cont p lambdal =
         assert false (* TODO *)
     | Pcompare, _ ->
         assert false (* TODO *)
+    | Pgetglobal(id), [] ->
+        let gv = Llvm.declare_global cg.cg_value_type (Ident.persistent_name id) cg.cg_module in
+          Llvm.build_load gv "" cg.cg_builder
+    | Psetglobal(id), [v] ->
+        let v = build_box v cg in
+        let gv = Llvm.declare_global cg.cg_value_type (Ident.persistent_name id) cg.cg_module in
+          if Llvm.is_constant v then begin
+            Llvm.set_initializer v gv;
+            Llvm.set_global_constant true gv
+          end else begin
+            Llvm.set_initializer (Llvm.undef cg.cg_value_type) gv;
+            ignore (Llvm.build_store v gv cg.cg_builder)
+          end;
+          Llvm.undef cg.cg_value_type
     | Pmakeblock(header, Immutable), vl ->
         let vl = List.map (fun v -> build_box v cg) vl in
           if List.for_all (fun v -> Llvm.is_constant v) vl then begin

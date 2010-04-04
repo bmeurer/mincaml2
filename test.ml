@@ -42,26 +42,27 @@ let length l =
 ;;
 *)
 
-(*
+
 let rec map f l =
   match l with
     | [] -> []
     | x :: l -> f x :: map f l
 ;;
-*)
 
-(*
-let h y l =
-  let k = (); function
-    | 0 -> 1
-    | 1 -> 1
-    | x -> (x - 1) * (x - 2) in
-  let rec f l =
-    map g l
-  and g x =
-    x + k y
-  in g, f
+let add x y = x + y;;
+
+let one = 1;;
+
+let map_plus1 l =
+  let plus1 = fun x -> add x one in
+    map plus1 l
 ;;
-*)
 
-print_endline "Hallo Welt!";;
+let rec printl = function
+  | [] -> print_string "\n"
+  | [s] -> print_string s; print_string "\n"
+  | s :: l -> print_string s; print_string "; "; printl l
+;;
+
+printl ["Hallo"; "Welt"];;
+

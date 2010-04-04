@@ -16,6 +16,9 @@ and primitive =
   | Pidentity
   | Praise
   | Pcompare
+  (* Operations on globals *)
+  | Pgetglobal of Ident.t
+  | Psetglobal of Ident.t
   (* Operations on heap blocks *)
   | Pmakeblock of nativeint * mutable_flag
   | Pfield of int
@@ -63,14 +66,14 @@ and lambda_switch =
       sw_blocks: (int * lambda) list;
       sw_default: lambda option }
 
-module IdentSet: Set.S with type elt = Ident.t
-
 val tag_closure: int
 val tag_float: int
 val tag_string: int
 val tag_custom: int
 
 val lambda_unit: lambda
+
+val translate_ident: Ident.t -> lambda
 
 val make_header: int -> int -> nativeint
 val split_header: nativeint -> int * int

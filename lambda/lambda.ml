@@ -16,6 +16,9 @@ and primitive =
   | Pidentity
   | Praise
   | Pcompare
+  (* Operations on globals *)
+  | Pgetglobal of Ident.t
+  | Psetglobal of Ident.t
   (* Operations on heap blocks *)
   | Pmakeblock of nativeint * mutable_flag
   | Pfield of int
@@ -63,14 +66,17 @@ and lambda_switch =
       sw_blocks: (int * lambda) list;
       sw_default: lambda option }
 
-module IdentSet = Set.Make(Ident)
-
 let tag_closure = 252
 let tag_float = 253
 let tag_string = 254
 let tag_custom = 255
 
 let lambda_unit = Lconst(Sconst_base(Const_int(0)))
+
+let rec translate_ident = function
+  | id when Ident.is_persistent id ->
+      Lprim(Pgetglobal id, [])
+  | id -> Lident(id)
 
 let make_header tag wosize =
   assert (tag >= 0 && tag < (1 lsl 8));

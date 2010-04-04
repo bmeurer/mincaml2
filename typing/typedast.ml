@@ -47,6 +47,21 @@ and structure =
     structure_item list
 
 
+let pattern_fv pat =
+  let rec pattern_fv_aux accu pat =
+    match pat.pat_desc with
+      | Tpat_any
+      | Tpat_constant(_) -> accu
+      | Tpat_ident(id) -> IdentSet.add id accu
+      | Tpat_alias(pat, id) -> pattern_fv_aux (IdentSet.add id accu) pat
+      | Tpat_tuple(patl)
+      | Tpat_construct(_, patl) -> pattern_fv_auxl accu patl
+      | Tpat_or(pat1, pat2) -> pattern_fv_aux (pattern_fv_aux accu pat1) pat2
+  and pattern_fv_auxl accu = function
+    | [] -> accu
+    | pat :: patl -> pattern_fv_auxl (pattern_fv_aux accu pat) patl
+  in pattern_fv_aux IdentSet.empty pat
+
 let rec pattern_map_idents f pat =
   match pat.pat_desc with
     | Tpat_any -> pat

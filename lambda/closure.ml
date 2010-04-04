@@ -169,6 +169,9 @@ let rec build_generic_apply toplevel lambda lambdal =
 (*** Closure conversion ***)
 (**************************)
 
+(* the approximations of the globals *)
+let global_aenv = ref (IdentMap.empty : approximation IdentMap.t);;
+
 let rec close toplevel aenv cenv = function
   | Lconst(_) as lambda ->
       lambda, Approx_unknown
@@ -199,6 +202,12 @@ let rec close toplevel aenv cenv = function
         Llet(id, lambda1, lambda2), approx2
   | Lletrec(idlambdal, lambda) ->
       close_letrec toplevel aenv cenv idlambdal lambda
+  | Lprim(Pgetglobal id, []) as lambda ->
+      lambda, (try IdentMap.find id !global_aenv with Not_found -> Approx_unknown)
+  | Lprim(Psetglobal id, [lambda]) ->
+      let lambda, approx = close toplevel aenv cenv lambda in
+        global_aenv := IdentMap.add id approx !global_aenv;
+        Lprim(Psetglobal id, [lambda]), Approx_unknown
   | Lprim(prim, lambdal) ->
       let lambdal = List.map (fun lambda -> fst (close toplevel aenv cenv lambda)) lambdal in
         Lprim(prim, lambdal), Approx_unknown
@@ -236,8 +245,10 @@ let rec close toplevel aenv cenv = function
         Lsequence(lambda1, lambda2), approx2
         
 and close_letrec toplevel aenv cenv idlambdal lambda =
-  let fvl = IdentSet.elements (Lambda.fv (Lletrec(idlambdal, lambda))) in
-  let offset = ref (-1) in
+  let fvl = IdentSet.elements (Lambda.fv (Lletrec(idlambdal, lambda_unit))) in
+  (* remember the initial toplevel in case we do a 2nd close run on the lambdas below *)
+  let toplevel0 = !toplevel in
+  let offset = ref (0) in
   (* Build the function description list from the idlambdal *)
   let fundefl = (List.map
                    (function
@@ -245,11 +256,11 @@ and close_letrec toplevel aenv cenv idlambdal lambda =
                           let fundesc = { fun_label = id;
                                           fun_arity = List.length idl;
                                           fun_closed = true } in
-                          let off = !offset + 1 in
+                          let off = !offset in
                             if fundesc.fun_arity = 1 then begin
-                              offset := off + 2 (* [function pointer, arity] *)
+                              offset := off + 3 (* [header, function pointer, arity] *)
                             end else begin
-                              offset := off + 3; (* [trampoline, arity, function pointer] *)
+                              offset := off + 4; (* [header, trampoline, arity, function pointer] *)
                             end;
                             id, idl, lambda, fundesc, off
                       | _ ->
@@ -296,6 +307,8 @@ and close_letrec toplevel aenv cenv idlambdal lambda =
                  let closl = List.map close_fundef fundefl in
                    (* check if the assumption was invalidated *)
                    if not (!closed) then begin
+                     (* reset the toplevel *)
+                     toplevel := toplevel0;
                      (* do it again with the environment this time *)
                      List.iter (fun (_, _, _, fundesc, _) -> fundesc.fun_closed <- false) fundefl;
                      List.map close_fundef fundefl
@@ -328,9 +341,10 @@ and close_letrec toplevel aenv cenv idlambdal lambda =
       end
 
 let close_lambda lambda =
+  global_aenv := IdentMap.empty;
   let toplevel = ref [] in
   let lambda, _ = close toplevel IdentMap.empty IdentMap.empty lambda in
     if !toplevel <> [] then
-      Lletrec(!toplevel, lambda)
+      Lletrec(List.rev !toplevel, lambda)
     else
       lambda
