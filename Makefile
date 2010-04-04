@@ -17,6 +17,8 @@ SOURCES=				\
 	parsing/parse.mli		\
 	typing/ident.ml			\
 	typing/ident.mli		\
+	typing/identSet.ml		\
+	typing/identSet.mli		\
 	typing/primitive.ml		\
 	typing/primitive.mli		\
 	typing/types.ml			\
