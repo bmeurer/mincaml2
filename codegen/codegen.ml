@@ -464,14 +464,6 @@ let create () =
       cg_floatblk_type = cg_floatblk_type;
       cg_alloc_func = cg_alloc_func }
 
-let generate_predefined_exn id cg =
-  let slen = String.length (Ident.name id) in
-  let slen = ((slen + (Sys.word_size / 8)) / (Sys.word_size / 8)) * (Sys.word_size / 8) in
-  let sty = Llvm.struct_type cg.cg_context [|cg.cg_value_type; (Llvm.array_type cg.cg_i8_type slen)|] in
-  let v = Llvm.declare_global sty (Ident.unique_name id) cg.cg_module in
-    Llvm.set_global_constant true v;
-    Llvm.const_pointercast v cg.cg_value_type
-
 
 (********************)
 (*** Entry points ***)
@@ -479,17 +471,7 @@ let generate_predefined_exn id cg =
 
 let dump lambda =
   let cg = create () in
-  (* generate the predefined exceptions *)
-  let env0 = (List.fold_left
-                (fun env id -> IdentMap.add id (generate_predefined_exn id cg) env)
-                IdentMap.empty
-                [Typeenv.ident_match_failure;
-                 Typeenv.ident_out_of_memory;
-                 Typeenv.ident_stack_overflow;
-                 Typeenv.ident_invalid_argument;
-                 Typeenv.ident_failure;
-                 Typeenv.ident_not_found;
-                 Typeenv.ident_division_by_zero]) in
+  let env0 = IdentMap.empty in
   (* generate the "entry" for this module *)
   let entry = Llvm.declare_function "mc2_entry" (Llvm.function_type (Llvm.void_type cg.cg_context) [||]) cg.cg_module in
   let bb = Llvm.append_block cg.cg_context "mc2_entry" entry in

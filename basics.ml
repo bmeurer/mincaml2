@@ -47,7 +47,7 @@ external snd: 'a * 'b -> 'b = "%field1";;
 (***********************)
 (*** List operations ***)
 (***********************)
-
+(*
 let rec (@) l1 l2 =
   match l1 with
     | [] -> l2
@@ -76,3 +76,4 @@ external output_string: out_channel -> string -> unit = "mc2_output_string";;
 let print_string s = output_string stdout s;;
 let print_endline s = print_string s; print_string "\n"; flush stdout;;
 
+*)

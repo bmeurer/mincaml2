@@ -195,7 +195,15 @@ let rec translate_exp exp =
                 end
             | Cstr_exception(id) ->
                 let header = Lambda.make_header 0 (1 + List.length lambdal) in
-                  Lprim(Pmakeblock(header, Immutable), (Lident(id)) :: lambdal)
+                let tag = (if Ident.is_predefined_exn id then
+                             Lconst(Sconst_base(Const_int(Ident.predefined_exn_tag id)))
+                           else
+                             Lident(id)) in
+                  begin try
+                    Lconst(Sconst_block(header, List.map extract_constant (tag :: lambdal)))
+                  with
+                    | Not_constant -> Lprim(Pmakeblock(header, Immutable), tag :: lambdal)
+                  end
           end
     | Texp_ifthenelse(exp0, exp1, None) ->
         Lifthenelse(translate_exp exp0, translate_exp exp1, lambda_unit)

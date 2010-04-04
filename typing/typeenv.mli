@@ -17,11 +17,15 @@ val ident_option: Ident.t
 (* Qualified identifiers for predefined exceptions *)
 val ident_match_failure: Ident.t
 val ident_out_of_memory: Ident.t
-val ident_stack_overflow: Ident.t
 val ident_invalid_argument: Ident.t
 val ident_failure: Ident.t
 val ident_not_found: Ident.t
+val ident_sys_error: Ident.t
+val ident_end_of_file: Ident.t
 val ident_division_by_zero: Ident.t
+val ident_stack_overflow: Ident.t
+val ident_sys_blocked_io: Ident.t
+val ident_assert_failure: Ident.t
 
 (* Predefined types *)
 val type_int: typ

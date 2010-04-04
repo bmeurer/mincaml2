@@ -164,6 +164,10 @@ let rec compile matching =
 
     (* Case 7: Column 0 starts with an exception constructor pattern *)
     | Matching(({ pat_desc = Tpat_construct({ cstr_tag = Cstr_exception(id) }, patl') } :: patl, lambda) :: clausel, (id0 :: idl1 as idl)) ->
+        let tag = (if Ident.is_predefined_exn id then
+                     Lconst(Sconst_base(Const_int(Ident.predefined_exn_tag id)))
+                   else
+                     Lident(id)) in
         let lid0 = Lident(id0) in
         let id0il = ListUtils.rev_init (List.length patl') (fun i -> Ident.create_tmp i, i) in
         let clausel1, clausel2 = partition_exception id clausel in
@@ -174,7 +178,7 @@ let rec compile matching =
                          (fun lambda (id, i) -> Llet(id, Lprim(Pfield(i + 1), [lid0]), lambda))
                          lambda1
                          id0il) in
-        let lambda0 = Lprim(Pintcmp(Lambda.Ceq), [Lident(id); Lprim(Pfield(0), [lid0])]) in
+        let lambda0 = Lprim(Pintcmp(Lambda.Ceq), [tag; Lprim(Pfield(0), [lid0])]) in
           if total1 then
             Lifthenelse(lambda0, lambda1, lambda2), total2
           else

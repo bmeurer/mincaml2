@@ -24,14 +24,6 @@ let create name =
     current_stamp := stamp;
     { name = name; stamp = stamp; persistent = false }
 
-let create_persistent name =
-  let id = create name in
-    id.persistent <- true;
-    id
-
-let create_predefined name =
-  { name = name; stamp = -1; persistent = true }
-
 let create_tmp i =
   create ("t" ^ (string_of_int i))
 
@@ -39,10 +31,12 @@ let name id =
   id.name
 
 let unique_name id =
-  symbol_name (if id.stamp >= 0 then
+  symbol_name (if id.stamp > 0 then
                  id.name ^ "___" ^ (string_of_int id.stamp)
+               else if id.stamp = 0 then
+                 "mc2_" ^ id.name
                else
-                 "mc2_" ^ id.name)
+                 id.name ^ "_" ^ (string_of_int (-id.stamp - 1)))
 
 let compare id1 id2 =
   let c = id1.stamp - id2.stamp in
@@ -53,6 +47,24 @@ let compare id1 id2 =
 
 let equal id1 id2 =
   compare id1 id2 = 0
+
+let create_unique name =
+  { name = name; stamp = 0; persistent = true }
+
+let create_predefined_exn name tag =
+  { name = name; stamp = -tag - 1; persistent = true } 
+
+let is_predefined_exn id =
+  id.stamp < 0
+
+let predefined_exn_tag id =
+  assert (is_predefined_exn id);
+  -(id.stamp + 1)
+
+let create_persistent name =
+  let id = create name in
+    id.persistent <- true;
+    id
 
 let is_persistent id =
   id.persistent
@@ -67,6 +79,6 @@ let persistent_name id =
 
 let print ppf id =
   match id.stamp with
-    | -1 -> fprintf ppf "%s" id.name
+    | stamp when stamp < 0 -> fprintf ppf "%s" id.name
     | stamp when is_persistent id -> fprintf ppf "%s_%i" id.name stamp
     | stamp -> fprintf ppf "%s/%i" id.name stamp

@@ -17,14 +17,18 @@ and ident_bool = Ident.create "bool"
 and ident_list = Ident.create "list"
 and ident_option = Ident.create "option"
 
-(* Qualified identifiers for predefined exceptions *)
-let ident_match_failure = Ident.create_predefined "Match_failure"
-and ident_out_of_memory = Ident.create_predefined "Out_of_memory"
-and ident_stack_overflow = Ident.create_predefined "Stack_overflow"
-and ident_invalid_argument = Ident.create_predefined "Invalid_argument"
-and ident_failure = Ident.create_predefined "Failure"
-and ident_not_found = Ident.create_predefined "Not_found"
-and ident_division_by_zero = Ident.create_predefined "Division_by_zero"
+(* Qualified identifiers for predefined exceptions (keep in sync with mc2types.h) *)
+let ident_match_failure = Ident.create_predefined_exn "Match_failure" 0
+and ident_out_of_memory = Ident.create_predefined_exn "Out_of_memory" 1
+and ident_invalid_argument = Ident.create_predefined_exn "Invalid_argument" 2
+and ident_failure = Ident.create_predefined_exn "Failure" 3
+and ident_not_found = Ident.create_predefined_exn "Not_found" 4
+and ident_sys_error = Ident.create_predefined_exn "Sys_error" 5
+and ident_end_of_file = Ident.create_predefined_exn "End_of_file" 6
+and ident_division_by_zero = Ident.create_predefined_exn "Division_by_zero" 7
+and ident_stack_overflow = Ident.create_predefined_exn "Stack_overflow" 8
+and ident_sys_blocked_io = Ident.create_predefined_exn "Sys_blocked_io" 9
+and ident_assert_failure = Ident.create_predefined_exn "Assert_failure" 10
 
 (* Predefined types *)
 let type_int = new_generic_typ (Tconstruct(ident_int, []))
@@ -192,10 +196,14 @@ let initial =
                  [
                    ident_match_failure, [new_generic_typ (Ttuple([type_string; type_int; type_int]))];
                    ident_out_of_memory, [];
-                   ident_stack_overflow, [];
-                   ident_invalid_argument, [];
+                   ident_invalid_argument, [type_string];
                    ident_failure, [type_string];
                    ident_not_found, [];
-                   ident_division_by_zero, []
+                   ident_sys_error, [type_string];
+                   ident_end_of_file, [];
+                   ident_division_by_zero, [];
+                   ident_stack_overflow, [];
+                   ident_sys_blocked_io, [];
+                   ident_assert_failure, [new_generic_typ (Ttuple([type_string; type_int; type_int]))]
                  ]) in
     gamma

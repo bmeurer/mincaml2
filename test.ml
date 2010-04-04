@@ -42,7 +42,7 @@ let length l =
 ;;
 *)
 
-
+(*
 let rec map f l =
   match l with
     | [] -> []
@@ -65,4 +65,12 @@ let rec printl = function
 ;;
 
 printl ["Hallo"; "Welt"];;
+*)
 
+let f exn =
+match exn with
+  | Match_failure(_) -> 0
+  | Invalid_argument(_) -> 1
+  | _ -> 2;;
+
+f (Not_found);;
