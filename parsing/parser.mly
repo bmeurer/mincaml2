@@ -507,11 +507,18 @@ typ_star_list:
 ;
 
 simple_typ:
+| simple_typ2 %prec below_DOT
+    { $1 }
+| LPAREN typ_comma_list RPAREN %prec below_DOT
+    { match $2 with [ptau] -> ptau | _ -> raise Parse_error }
+;
+
+simple_typ2:
 | QUOTE ident
     { mktyp (Ptyp_var($2)) }
 | LOWERCASEIDENT
     { mktyp (Ptyp_construct($1, [])) }
-| simple_typ LOWERCASEIDENT
+| simple_typ2 LOWERCASEIDENT
     { mktyp (Ptyp_construct($2, [$1])) }
 | LPAREN typ_comma_list RPAREN LOWERCASEIDENT
     { mktyp (Ptyp_construct($4, List.rev $2)) }
