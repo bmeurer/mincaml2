@@ -26,5 +26,6 @@ static inline mc2_custom_operations_t mc2_custom_operations_of_value(mc2_value_t
 }
 
 mc2_block_t mc2_custom_alloc(mc2_size_t size, mc2_custom_operations_t ops) MC2_GNUC_MALLOC MC2_GNUC_WARN_UNUSED_RESULT;
+mc2_value_t mc2_custom_compare(mc2_value_t v1, mc2_value_t v2) MC2_GNUC_WARN_UNUSED_RESULT;
 
 #endif /* !__MC2_CUSTOM_H__ */

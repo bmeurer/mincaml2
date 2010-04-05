@@ -47,12 +47,26 @@ external snd: 'a * 'b -> 'b = "%field1";;
 (***********************)
 (*** List operations ***)
 (***********************)
-(*
+
 let rec (@) l1 l2 =
   match l1 with
     | [] -> l2
     | x :: l1 -> x :: (l1 @ l2)
 ;;
+
+
+(***********************************)
+(*** String conversion functions ***)
+(***********************************)
+
+let string_of_bool = function
+  | true -> "true"
+  | false -> "false"
+
+let bool_of_string = function
+  | "true" -> true
+  | "false" -> false
+  | _ -> raise (Invalid_argument("bool_of_string"))
 
 
 (**********************)
@@ -76,4 +90,3 @@ external output_string: out_channel -> string -> unit = "mc2_output_string";;
 let print_string s = output_string stdout s;;
 let print_endline s = print_string s; print_string "\n"; flush stdout;;
 
-*)

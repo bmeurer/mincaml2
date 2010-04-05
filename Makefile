@@ -50,8 +50,12 @@ RTSOURCES=				\
 	runtime/mc2core.h		\
 	runtime/mc2custom.c		\
 	runtime/mc2custom.h		\
+	runtime/mc2eh.c			\
+	runtime/mc2eh.h			\
 	runtime/mc2io.c			\
 	runtime/mc2io.h			\
+	runtime/mc2string.c		\
+	runtime/mc2string.h		\
 	runtime/mc2types.h
 
 OBJECTS=$(patsubst %.ml,%.cmo,$(patsubst %.mli,%.cmi,$(SOURCES))) \

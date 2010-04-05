@@ -67,10 +67,12 @@ let rec printl = function
 printl ["Hallo"; "Welt"];;
 *)
 
-let f exn =
-match exn with
-  | Match_failure(_) -> 0
-  | Invalid_argument(_) -> 1
-  | _ -> 2;;
+let g l =
+  if l = [] then 2 else raise Not_found
+;;
 
-f (Not_found);;
+let f l =
+  try
+    g l
+  with
+    | Not_found -> 1;;

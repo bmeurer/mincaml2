@@ -57,8 +57,27 @@ static inline mc2_value_t mc2_value_of_long(mc2_long_t l) {
 static inline mc2_block_t mc2_block_of_value(mc2_value_t v) { return v.value_block; }
 static inline mc2_long_t mc2_long_of_value(mc2_value_t v) { return v.value_long >> 1; }
 
+static inline mc2_value_t mc2_block_field(mc2_block_t b, int n) {
+  return mc2_value_of_block(b->block_data[n]);
+}
+static inline void mc2_block_setfield(mc2_block_t b, int n, mc2_value_t v) {
+  b->block_data[n] = mc2_block_of_value(v);
+}
+
+static inline double mc2_float_of_block(mc2_block_t b) {
+  return ((double *) &b->block_data[0])[0];
+}
+static inline double mc2_float_of_value(mc2_value_t v) {
+  return mc2_float_of_block(mc2_block_of_value(v));
+}
+
 static inline mc2_tag_t mc2_tag_of_header(mc2_header_t hd) { return hd & 0xff; }
 static inline mc2_size_t mc2_wosize_of_header(mc2_header_t hd) { return hd >> 8; }
+
+static inline mc2_tag_t mc2_tag_of_block(mc2_block_t b) { return mc2_tag_of_header(b->block_header); }
+static inline mc2_size_t mc2_wosize_of_block(mc2_block_t b) { return mc2_wosize_of_header(b->block_header); }
+static inline mc2_tag_t mc2_tag_of_value(mc2_value_t v) { return mc2_tag_of_block(mc2_block_of_value(v)); }
+static inline mc2_size_t mc2_wosize_of_value(mc2_value_t v) { return mc2_wosize_of_block(mc2_block_of_value(v)); }
 
 static inline mc2_size_t mc2_bosize_of_wosize(mc2_size_t wosize) { return wosize * sizeof(mc2_block_t); }
 static inline mc2_size_t mc2_wosize_of_bosize(mc2_size_t bosize) { return bosize / sizeof(mc2_block_t); }
@@ -68,6 +87,19 @@ static inline mc2_size_t mc2_wosize_of_bosize(mc2_size_t bosize) { return bosize
 #define MC2_TAG_STRING  (MC2_TAG_FLOAT + 1)
 #define MC2_TAG_CUSTOM  (MC2_TAG_STRING + 1)
 #define MC2_TAG_ATOMIC  (MC2_TAG_FLOAT)
+
+static inline int mc2_block_is_custom(mc2_block_t b) {
+  return mc2_tag_of_block(b) == MC2_TAG_CUSTOM;
+}
+static inline int mc2_value_is_custom(mc2_value_t v) {
+  return mc2_value_is_block(v) && mc2_block_is_custom(mc2_block_of_value(v));
+}
+static inline int mc2_block_is_string(mc2_block_t b) {
+  return mc2_tag_of_block(b) == MC2_TAG_STRING;
+}
+static inline int mc2_value_is_string(mc2_value_t v) {
+  return mc2_value_is_block(v) && mc2_block_is_string(mc2_block_of_value(v));
+}
 
 /* predefined exception blocks (actually longs) */
 #define MC2_EXN_OF_TAG(tag)      ((mc2_block_t) (((tag) << 1) | 1))
