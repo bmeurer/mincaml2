@@ -88,6 +88,18 @@ void mc2_eh_raise_sys_error(const char *msg) {
 }
 
 
+void mc2_eh_raise_invalid_argument(const char *msg) {
+  mc2_block_t exn;
+
+  assert(msg != NULL);
+
+  exn = mc2_core_alloc((3 << 8) | 0);
+  mc2_block_setfield(exn, 0, mc2_value_of_block(MC2_EXN_INVALID_ARGUMENT));
+  mc2_block_setfield(exn, 1, mc2_value_of_block(mc2_string_alloc(msg)));
+  mc2_eh_raise(mc2_value_of_block(exn));
+}
+
+
 void mc2_eh_uncaught_exception(mc2_value_t exn) {
   // TODO - print the exception
   fprintf(stderr, "Fatal error: exception\n");

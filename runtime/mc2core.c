@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include <gc/gc.h>
@@ -90,4 +91,16 @@ mc2_value_t mc2_core_compare(mc2_value_t v1, mc2_value_t v2) {
       return mc2_value_of_long(0);
     }
   }
+}
+
+
+int main(int argc, char **argv) {
+  extern void mc2_entry();
+
+  GC_all_interior_pointers = 1; /* for closures */
+  GC_INIT();
+
+  mc2_entry();
+
+  return EXIT_SUCCESS;
 }

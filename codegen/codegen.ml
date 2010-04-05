@@ -18,7 +18,9 @@ type t =
       cg_value_type:      Llvm.lltype;
       cg_floatblk_type:   Llvm.lltype;
     
-      cg_alloc_func:      Llvm.llvalue }
+      cg_core_alloc:      Llvm.llvalue;
+      cg_core_compare:    Llvm.llvalue;
+      cg_eh_raise:        Llvm.llvalue }
 
 
 (*********************)
@@ -73,7 +75,7 @@ let build_box v cg =
     | ty when ty = cg.cg_float_type ->
         let vwosize = 8 / ((Sys.word_size / 8)) in
         let vhdr = const_pointer (Lambda.make_header Lambda.tag_float vwosize) cg in
-        let vptr = Llvm.build_call cg.cg_alloc_func [|vhdr|] "" cg.cg_builder in
+        let vptr = Llvm.build_call cg.cg_core_alloc [|vhdr|] "" cg.cg_builder in
         let fbptr = Llvm.build_pointercast vptr (Llvm.pointer_type cg.cg_floatblk_type) "" cg.cg_builder in
         let fptr = Llvm.build_gep fbptr [|const_i32 0 cg; const_i32 1 cg|] "" cg.cg_builder in
           ignore (Llvm.build_store v fptr cg.cg_builder);
@@ -171,7 +173,7 @@ let rec generate cg env cont = function
       let phil = (v2, Llvm.insertion_block cg.cg_builder) :: phil in
       (* generate the phi block *)
         build_phi phil cg
-  | Ltrywith(_) ->
+  | Ltrywith(lambda1, id, lambda2) ->
       assert false (* TODO *)
   | Lifthenelse(lambda0, lambda1, lambda2) ->
       (* setup the basicblocks for lambda0/lambda1/lambda2 *)
@@ -285,10 +287,13 @@ and generate_prim cg env cont p lambdal =
         const_int 0 cg
     | Pidentity, [v] ->
         v
-    | Praise, _ ->
-        assert false (* TODO *)
-    | Pcompare, _ ->
-        assert false (* TODO *)
+    | Praise, [v] ->
+        ignore (Llvm.build_call cg.cg_eh_raise [|build_box v cg|] "" cg.cg_builder);
+        Llvm.undef cg.cg_value_type
+    | Pcompare, [v1; v2] ->
+        let v1 = build_box v1 cg in
+        let v2 = build_box v2 cg in
+          Llvm.build_call cg.cg_core_compare [|v1; v2|] "" cg.cg_builder
     | Pgetglobal(id), [] ->
         let gv = Llvm.declare_global cg.cg_value_type (Ident.persistent_name id) cg.cg_module in
           Llvm.build_load gv "" cg.cg_builder
@@ -314,7 +319,7 @@ and generate_prim cg env cont p lambdal =
               v
           end else begin
             let vhdr = const_pointer header cg in
-            let v = Llvm.build_call cg.cg_alloc_func [|vhdr|] "" cg.cg_builder in
+            let v = Llvm.build_call cg.cg_core_alloc [|vhdr|] "" cg.cg_builder in
             let vptr = Llvm.build_pointercast v (Llvm.pointer_type cg.cg_value_type) "" cg.cg_builder in
               (Array.iteri
                  (fun i v ->
@@ -442,7 +447,31 @@ let create () =
   let cg_float_type = Llvm.double_type cg_context in
   let cg_value_type = Llvm.pointer_type cg_int_type in
   let cg_floatblk_type = Llvm.struct_type cg_context [|cg_value_type; cg_float_type|] in
-  let cg_alloc_func = Llvm.declare_function "mc2_alloc" (Llvm.function_type cg_value_type [|cg_value_type|]) cg_module in
+  (* mc2_core_alloc *)
+  let cg_core_alloc =
+    (let fty = Llvm.function_type cg_value_type [|cg_value_type|] in
+     let func = Llvm.declare_function "mc2_core_alloc" fty cg_module in
+(* TODO - LLVM Ocaml bindings breakage
+       Llvm.add_param_attr (Llvm.param func 0) Llvm.Attribute.Noalias;
+*)
+       Llvm.add_function_attr func Llvm.Attribute.Readonly;
+       func) in
+  (* mc2_core_compare *)
+  let cg_core_compare =
+    (let fty = Llvm.function_type cg_value_type [|cg_value_type; cg_value_type|] in
+     let func = Llvm.declare_function "mc2_core_compare" fty cg_module in
+       Llvm.add_function_attr func Llvm.Attribute.Readonly;
+(* TODO - LLVM Ocaml bindings breakage
+       Llvm.add_param_attr (Llvm.param func 0) Llvm.Attribute.Nocapture;
+       Llvm.add_param_attr (Llvm.param func 1) Llvm.Attribute.Nocapture;
+*)
+       func) in
+  (* mc2_eh_raise *)
+  let cg_eh_raise =
+    (let fty = Llvm.function_type (Llvm.void_type cg_context) [|cg_value_type|] in
+     let func = Llvm.declare_function "mc2_eh_raise" fty cg_module in
+       Llvm.add_function_attr func Llvm.Attribute.Noreturn;
+       func) in
     ignore (Llvm.define_type_name "value" cg_value_type cg_module);
     ignore (Llvm.define_type_name "floatblk" cg_floatblk_type cg_module);
     Llvm_scalar_opts.add_instruction_combination cg_manager;
@@ -462,7 +491,9 @@ let create () =
       cg_float_type = cg_float_type;
       cg_value_type = cg_value_type;
       cg_floatblk_type = cg_floatblk_type;
-      cg_alloc_func = cg_alloc_func }
+      cg_core_alloc = cg_core_alloc;
+      cg_core_compare = cg_core_compare;
+      cg_eh_raise = cg_eh_raise }
 
 
 (********************)

@@ -67,12 +67,3 @@ let rec printl = function
 printl ["Hallo"; "Welt"];;
 *)
 
-let g l =
-  if l = [] then 2 else raise Not_found
-;;
-
-let f l =
-  try
-    g l
-  with
-    | Not_found -> 1;;

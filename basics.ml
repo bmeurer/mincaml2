@@ -76,17 +76,26 @@ let bool_of_string = function
 type in_channel
 type out_channel
 
-external open_descriptor_out: int -> out_channel = "mc2_open_descriptor_out";;
-external open_descriptor_in: int -> in_channel = "mc2_open_descriptor_in";;
+external open_descriptor_out: int -> int -> out_channel = "mc2_io_fdopen";;
+external open_descriptor_in: int -> int -> in_channel = "mc2_io_fdopen";;
 
-let stdin = open_descriptor_in 0
-and stdout = open_descriptor_out 1
-and stderr = open_descriptor_out 2;;
+let stdin = open_descriptor_in 0 1
+and stdout = open_descriptor_out 1 0
+and stderr = open_descriptor_out 2 0;;
 
-external flush: out_channel -> unit = "mc2_flush";;
+external flush: out_channel -> unit = "mc2_io_fflush";;
 
-external output_string: out_channel -> string -> unit = "mc2_output_string";;
+external output_char: out_channel -> char -> unit = "mc2_io_fputc";;
+external output_string: out_channel -> string -> unit = "mc2_io_fputs";;
 
-let print_string s = output_string stdout s;;
-let print_endline s = print_string s; print_string "\n"; flush stdout;;
+let print_string s = output_string stdout s
+and print_char c = output_char stdout c
+and print_endline s = let channel = stdout in output_string channel s; output_char channel '\n'; flush channel
+and print_newline () = output_char stdout '\n'
+;;
 
+let prerr_char c = output_char stderr c
+and prerr_string s = output_string stderr s
+and prerr_endline s = let channel = stderr in output_string channel s; output_char channel '\n'; flush channel
+and prerr_newline () = output_char stderr '\n'
+;;
