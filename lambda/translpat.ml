@@ -154,9 +154,9 @@ let rec compile matching =
                              Lprim(Pbintcmp(Pint64, Ceq), [Lident(id0); Lconst(Sconst_base(c))])
                          | Const_nativeint(_) ->
                              Lprim(Pbintcmp(Pnativeint, Ceq), [Lident(id0); Lconst(Sconst_base(c))])
-                         | Const_string(_) ->
+                         | Const_string(s) ->
                              Lprim(Pintcmp(Ceq), [Lconst(Sconst_base(Const_int(0)));
-                                                  Lprim(Pcompare, [Lident(id0); Lconst(Sconst_base(c))])])) in
+                                                  Lprim(Pcompare, [Lident(id0); Lconst(Sconst_immstring(s))])])) in
           if total1 then
             Lifthenelse(lambda0, lambda1, lambda2), total2
           else
