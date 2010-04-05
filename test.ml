@@ -1,69 +1,76 @@
 (*
-let fact x =
-  let rec fact_aux x accu =
-    match x with
-      | 0 -> accu
-      | x -> fact_aux (x - 1) (x * accu)
-  in fact_aux x 1
+  Manipulation of lists.
+
+  - [] is the empty list
+  - :: is the infix operator that builds list cells.
+    Hence 1 :: (2 :: []) is the list that contains 1 and 2 in this order.
+
+*)
+(* interval min max = [min; min+1; ...; max-1; max] *)
+
+let rec interval min max =
+  if min > max then [] else min :: interval (min + 1) max
 ;;
 
-fact 3;;
-*)
-
-(*
-let rec even x =
-  if x == 0 then true
-  else odd (x - 1)
-and odd x =
-  if x == 0 then false
-  else even (x - 1)
+let rec iter f = function
+  | [] -> ()
+  | x :: l -> f x; iter f l
 ;;
 
-even, odd;;
-*)
-
 (*
-let map_fact = map fact;;
-*)
 
-(*
-let rec fib = function
-  | 0 -> 1
-  | 1 -> 1
-  | x -> (+) (fib ( x-1)) (fib ((+) x (-2)));;
-
-let swap (x, y) = y, x;;
-
-let length l =
-  let rec length_aux accu = function
-    | [] -> accu
-    | _ :: l -> length_aux (accu + 1) l
-  in length_aux 0 l
-;;
-*)
-
-(*
-let rec map f l =
+  Case analysis on list l is written
   match l with
-    | [] -> []
-    | x :: l -> f x :: map f l
-;;
+  | [] -> ``nil case''
+  | x :: tail -> ``non nil case,
+                   with x (the head of l) and tail (the tail of l) available''
 
-let add x y = x + y;;
+  Function can perform direct case analysis on their argument,
+  if introduced by the function keyword. Hence,
 
-let one = 1;;
+    let f (x) =
+      match x with
+      | [] -> ...
+      | ...
 
-let map_plus1 l =
-  let plus1 = fun x -> add x one in
-    map plus1 l
-;;
+  can be abreviated as
 
-let rec printl = function
-  | [] -> print_string "\n"
-  | [s] -> print_string s; print_string "\n"
-  | s :: l -> print_string s; print_string "; "; printl l
-;;
+    let f = function
+      | [] -> ...
+      | ...
 
-printl ["Hallo"; "Welt"];;
 *)
 
+(* filter p L returns the list of the elements in list L
+   that satisfy predicate p *)
+
+let rec filter p = function
+  | []  -> []
+  | a :: r -> if p a then a :: filter p r else filter p r
+;;
+
+(* Application: removing all numbers multiple of n from a list of integers *)
+
+let remove_multiples_of n l =
+  filter (fun m -> m mod n <> 0) l
+;;
+
+(* The sieve itself *)
+
+let sieve max =
+  let rec filter_again = function
+  | [] -> []
+  | n :: r as l ->
+      if n * n > max then l else n :: filter_again (remove_multiples_of n r)
+  in
+    filter_again (interval 2 max)
+;;
+
+(* The entry point *)
+
+let main n =
+  iter (fun n -> print_int n; print_char ' ') (sieve n);
+  print_newline ()
+;;
+
+main 10;;

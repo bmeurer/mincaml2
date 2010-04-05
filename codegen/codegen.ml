@@ -308,9 +308,9 @@ and generate_prim cg env cont p lambdal =
             ignore (Llvm.build_store v gv cg.cg_builder)
           end;
           Llvm.undef cg.cg_value_type
-    | Pmakeblock(header, Immutable), vl ->
+    | Pmakeblock(header, mutable_flag), vl ->
         let vl = List.map (fun v -> build_box v cg) vl in
-          if List.for_all (fun v -> Llvm.is_constant v) vl then begin
+          if mutable_flag = Immutable && List.for_all (fun v -> Llvm.is_constant v) vl then begin
             let vhdr = const_pointer header cg in
             let v = Llvm.const_array cg.cg_value_type (Array.of_list (vhdr :: vl)) in
             let v = Llvm.define_global "" v cg.cg_module in
@@ -328,14 +328,20 @@ and generate_prim cg env cont p lambdal =
                  (Array.of_list vl));
               v
           end
-    | Pmakeblock(_), _ ->
-        assert false (* TODO *)
     | Pfield(n), [v] ->
+        let v = build_box v cg in
         let v = Llvm.build_pointercast v (Llvm.pointer_type cg.cg_value_type) "" cg.cg_builder in
         let v = Llvm.build_gep v [|const_i32 (n + 1) cg|] "" cg.cg_builder in
           Llvm.build_load v "" cg.cg_builder
     | Poffset(n), [v] ->
         Llvm.build_gep (build_box v cg) [|const_int n cg|] "" cg.cg_builder
+    | Psetfield(n), [v1; v2] ->
+        let v1 = build_box v1 cg in
+        let v2 = build_box v2 cg in
+        let v1 = Llvm.build_pointercast v1 (Llvm.pointer_type cg.cg_value_type) "" cg.cg_builder in
+        let v1 = Llvm.build_gep v1 [|const_i32 (n + 1) cg|] "" cg.cg_builder in
+          ignore (Llvm.build_store v2 v1 cg.cg_builder);
+          const_pointer 1n cg
     | Pextcall(prim), vl ->
         let vl, ty = (if prim.prim_native_float then begin
                         List.map (fun v -> build_unbox v cg.cg_float_type cg) vl,

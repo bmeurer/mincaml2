@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdio.h>
 #include <string.h>
 
 #include <mc2core.h>
@@ -19,3 +20,17 @@ mc2_block_t mc2_string_alloc(const char *cstr) {
 
   return b;
 }
+
+
+mc2_block_t mc2_string_of_int(mc2_value_t i) {
+  char buffer[128];
+
+  assert(mc2_value_is_long(i));
+  assert(sizeof(mc2_long_t) == sizeof(long));
+
+  snprintf(buffer, sizeof(buffer), "%ld", (long) mc2_long_of_value(i));
+
+  return mc2_string_alloc(buffer);
+}
+
+

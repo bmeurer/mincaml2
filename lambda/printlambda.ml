@@ -67,6 +67,8 @@ let print_primitive ppf = function
       fprintf ppf "field %i" n
   | Poffset(n) ->
       fprintf ppf "offset %i" n
+  | Psetfield(n) ->
+      fprintf ppf "setfield %i" n
   | Pextcall(prim) ->
       fprintf ppf "%s" prim.prim_name
   | Pnegint ->

@@ -12,4 +12,6 @@ static inline char *mc2_string_data_of_value(mc2_value_t v) {
 
 mc2_block_t mc2_string_alloc(const char *cstr) MC2_GNUC_MALLOC MC2_GNUC_WARN_UNUSED_RESULT;
 
+mc2_block_t mc2_string_of_int(mc2_value_t i) MC2_GNUC_MALLOC MC2_GNUC_WARN_UNUSED_RESULT;
+
 #endif /* !__MC2_STRING_H__ */

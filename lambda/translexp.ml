@@ -63,33 +63,36 @@ let primitive_comparisons = HashtblUtils.create 7
 
 let primitives = HashtblUtils.create 33
   [
-    "%identity",   Pidentity;
-    "%ignore",     Pignore;
-    "%raise",      Praise;
-    "%compare",    Pcompare;
-    "%field0",     Pfield(0);
-    "%field1",     Pfield(1);
-    "%eq",         Pintcmp(Ceq);
-    "%noteq",      Pintcmp(Cne);
-    "%negint",     Pnegint;
-    "%addint",     Paddint;
-    "%subint",     Psubint;
-    "%mulint",     Pmulint;
-    "%divint",     Pdivint;
-    "%modint",     Pmodint;
-    "%andint",     Pandint;
-    "%orint",      Porint;
-    "%xorint",     Pxorint;
-    "%lslint",     Plslint;
-    "%lsrint",     Plsrint;
-    "%asrint",     Pasrint;
-    "%intoffloat", Pintoffloat;
-    "%floatofint", Pfloatofint;
-    "%negfloat",   Pnegfloat;
-    "%addfloat",   Paddfloat;
-    "%subfloat",   Psubfloat;
-    "%mulfloat",   Pmulfloat;
-    "%divfloat",   Pdivfloat;
+    "%identity",    Pidentity;
+    "%ignore",      Pignore;
+    "%raise",       Praise;
+    "%compare",     Pcompare;
+    "%field0",      Pfield(0);
+    "%field1",      Pfield(1);
+    "%setfield0",   Psetfield(0);
+    "%makemutable", Pmakeblock(Lambda.make_header 0 1, Mutable);
+    (* TODO - incr, decr *)
+    "%eq",          Pintcmp(Ceq);
+    "%noteq",       Pintcmp(Cne);
+    "%negint",      Pnegint;
+    "%addint",      Paddint;
+    "%subint",      Psubint;
+    "%mulint",      Pmulint;
+    "%divint",      Pdivint;
+    "%modint",      Pmodint;
+    "%andint",      Pandint;
+    "%orint",       Porint;
+    "%xorint",      Pxorint;
+    "%lslint",      Plslint;
+    "%lsrint",      Plsrint;
+    "%asrint",      Pasrint;
+    "%intoffloat",  Pintoffloat;
+    "%floatofint",  Pfloatofint;
+    "%negfloat",    Pnegfloat;
+    "%addfloat",    Paddfloat;
+    "%subfloat",    Psubfloat;
+    "%mulfloat",    Pmulfloat;
+    "%divfloat",    Pdivfloat;
     (* TODO *)
   ]
 

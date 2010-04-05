@@ -23,6 +23,7 @@ and primitive =
   | Pmakeblock of nativeint * mutable_flag
   | Pfield of int
   | Poffset of int
+  | Psetfield of int
   (* External call *)
   | Pextcall of Primitive.description
   (* Integer operations *)
