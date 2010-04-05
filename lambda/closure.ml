@@ -281,7 +281,7 @@ and close_letrec toplevel aenv cenv idlambdal lambda =
     let id0 = Ident.create "env" in
     let lid0 = Lident(id0) in
     let cenv =
-      let offset = ref (offset_fv - offset0) in
+      let offset = ref (offset_fv - (offset0 + 1)) in
         (List.fold_left
            (fun cenv id ->
               let off = !offset in
