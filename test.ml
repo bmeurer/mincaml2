@@ -1,76 +1,85 @@
-(*
-  Manipulation of lists.
 
-  - [] is the empty list
-  - :: is the infix operator that builds list cells.
-    Hence 1 :: (2 :: []) is the list that contains 1 and 2 in this order.
+(***********************************************************************)
+(*                                                                     *)
+(*                           Objective Caml                            *)
+(*                                                                     *)
+(*               Pierre Weis, projet Cristal, INRIA Rocquencourt       *)
+(*                                                                     *)
+(*  Copyright 2001 Institut National de Recherche en Informatique et   *)
+(*  en Automatique.  All rights reserved.  This file is distributed    *)
+(*  only by permission.                                                *)
+(*                                                                     *)
+(***********************************************************************)
 
-*)
-(* interval min max = [min; min+1; ...; max-1; max] *)
+(*                         E I G H T   Q U E E N S
 
-let rec interval min max =
-  if min > max then [] else min :: interval (min + 1) max
-;;
-
-let rec iter f = function
-  | [] -> ()
-  | x :: l -> f x; iter f l
-;;
-
-(*
-
-  Case analysis on list l is written
-  match l with
-  | [] -> ``nil case''
-  | x :: tail -> ``non nil case,
-                   with x (the head of l) and tail (the tail of l) available''
-
-  Function can perform direct case analysis on their argument,
-  if introduced by the function keyword. Hence,
-
-    let f (x) =
-      match x with
-      | [] -> ...
-      | ...
-
-  can be abreviated as
-
-    let f = function
-      | [] -> ...
-      | ...
+ The Eight Queens Program tail recursive version.
 
 *)
 
-(* filter p L returns the list of the elements in list L
-   that satisfy predicate p *)
+let length l =
+  let rec loop accu = function
+    | [] -> accu
+    | _ :: l -> loop (accu + 1) l in
+  loop 0 l;;
 
-let rec filter p = function
-  | []  -> []
-  | a :: r -> if p a then a :: filter p r else filter p r
+let map f l =
+ let rec loop accu = function
+   | [] -> accu
+   | x :: l -> loop (f x :: accu) l in
+ loop [] l;;
+
+let rec interval n m =
+ if n > m then [] else n :: interval (n + 1) m;;
+
+let rev_append l1 l2 =
+  let rec loop accu = function
+    | [] -> accu
+    | h :: t -> loop (h :: accu) t in
+  loop l2 l1;;
+
+let filter_append p l l0 =
+  let rec loop accu = function
+    | [] -> accu
+    | h :: t -> if p h then loop (h :: accu) t else loop accu t in
+  let rev_res = loop [] l in
+  rev_append rev_res l0;;
+
+let concmap f l =
+  let rec loop accu = function
+  | [] -> accu
+  | h :: t -> loop (f h accu) t in
+  loop [] l;;
+
+let rec safe x d  = function
+  | [] -> true
+  | h :: t ->
+     if x <> h then if x <> h + d then if x <> h - d then safe x (d + 1) t else false else false else false;;
+
+let rec ok = function
+  | [] -> true
+  | h :: t -> safe h 1 t;;
+
+let find_solutions size =
+ let line = interval 1 size in
+ let rec gen n size =
+   if n = 0 then [[]] else
+   concmap 
+    (fun b -> filter_append ok (map (fun q -> q :: b) line))
+    (gen (n - 1) size) in
+ gen size size;;
+
+let print_result size =
+  let solutions = find_solutions size in
+  let sol_num = length solutions in
+    print_string "The ";
+    print_int size;
+    print_string " queens problem has ";
+    print_int sol_num;
+    print_endline " solutions.";
+    print_newline ();
 ;;
 
-(* Application: removing all numbers multiple of n from a list of integers *)
+(* 3. Main program. *)
 
-let remove_multiples_of n l =
-  filter (fun m -> m mod n <> 0) l
-;;
-
-(* The sieve itself *)
-
-let sieve max =
-  let rec filter_again = function
-  | [] -> []
-  | n :: r as l ->
-      if n * n > max then l else n :: filter_again (remove_multiples_of n r)
-  in
-    filter_again (interval 2 max)
-;;
-
-(* The entry point *)
-
-let main n =
-  iter (fun n -> print_int n; print_char ' ') (sieve n);
-  print_newline ()
-;;
-
-main 10;;
+print_result 12;;

@@ -65,7 +65,7 @@ RTOBJECTS=$(patsubst %.c,%.o,$(filter %.c,$(RTSOURCES)))
 
 CC=gcc
 CPPFLAGS=-I runtime -I /opt/local/include
-CFLAGS=$(CPPFLAGS) -O0 -g3 -Wall -Werror
+CFLAGS=$(CPPFLAGS) -O2 -Wall -Werror
 LIBTOOL=libtool
 
 OCAMLCOMMONFLAGS=-I codegen -I lambda -I parsing -I typing -I utils
