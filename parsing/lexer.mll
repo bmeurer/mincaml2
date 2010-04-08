@@ -106,6 +106,8 @@ rule token = parse
         token lexbuf }
   | blank+
       { token lexbuf }
+  | "_"
+      { UNDERSCORE }
   | (lowercase identchar*) as lexeme
       { try
           Hashtbl.find keywords lexeme
@@ -214,8 +216,6 @@ rule token = parse
       { SEMISEMI }
   | '*'
       { STAR }
-  | "_"
-      { UNDERSCORE }
   | eof
       { EOF }
   | _
