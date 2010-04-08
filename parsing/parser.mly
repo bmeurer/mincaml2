@@ -428,8 +428,8 @@ type_kind:
     { Ptype_abstract }
 | EQUAL typ
     { Ptype_abbrev($2) }
-| EQUAL constructor_declarations
-    { Ptype_variant(List.rev $2) }
+| EQUAL opt_bar constructor_declarations
+    { Ptype_variant(List.rev $3) }
 ;
 
 type_parameters:
